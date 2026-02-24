@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "projeto-python-glpi-api-hero"
+version = "0.1.0"
+description = "Sistema de Helpdesk"
+authors = [
+    { name = "IBGE" }
+]
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+python-glpi-api-hero = "python-glpi-api-hero.main:main"
