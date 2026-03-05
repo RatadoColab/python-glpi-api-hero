@@ -115,7 +115,7 @@ class ApiCommunication:
                 raise ApiConnectionError(str(err))
             
     @staticmethod
-    def setConnectionParameters(url: str, apptoken: str, usertooken: str = None, user: str = None, passwd: str = None) -> None:
+    def setConnectionParameters(url: str, apptoken: str, usertoken: str = None, user: str = None, passwd: str = None) -> None:
         """Set the connection parameters before establish GLPI API server connection.
         
            Warninig: This method does not connect automatically with GLPI API Server. Call `initSession` after this method to do this. 

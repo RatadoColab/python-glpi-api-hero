@@ -24,7 +24,7 @@ class CommonDBTM:
         return ApiCommunication.glpi.search(cls.__name__, **kwargs)
     
     @classmethod
-    def get_item(cls, items_id, **kwargs):
+    def get(cls, items_id, **kwargs):
         return ApiCommunication.glpi.get_item(cls.__name__, items_id, **kwargs)
     
     @classmethod
