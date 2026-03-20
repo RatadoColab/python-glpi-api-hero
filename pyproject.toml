@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GlpiApiHero"
+version = "0.1.0"
+description = "Python client to easly communication with GLPI REST API."
+authors = [
+    { name = "André Proto", email = "andre.proto@ibge.gov.br" },
+    { name = "Leonardo Fernandes da Silva" }
+]
+keywords = ["GLPI", "ITSM", "helpdesk", "API", "REST", "client"]
+license = { file = "LICENSE" }
+readme = "README.md
+requires-python = ">=3.10"
+
+dependencies = [
+    "glpi_api>=0.7.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/RatadoColab/python-glpi-api-hero"
+Repository = "https://github.com/RatadoColab/python-glpi-api-hero"
+Issues = "https://github.com/RatadoColab/python-glpi-api-hero/issues"
+Changelog = "https://github.com/RatadoColab/python-glpi-api-hero/blob/main/CHANGELOG.md"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# [project.scripts]
+# python-glpi-api-hero = "python-glpi-api-hero.main:main"
