@@ -1,11 +1,11 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.itilfollowup import ITILFollowUp
-from glpi_api_hero.itilsolution import ITILSolution
-from glpi_api_hero.ticket_validation import TicketValidation
-from glpi_api_hero.task import Task
-from glpi_api_hero.item import Item
-from glpi_api_hero.actor import Actor
-from glpi_api_hero.linked_ticket import LinkedTicket
+from glpi_api_hero import CommonDBTM
+from glpi_api_hero import ITILFollowUp
+from glpi_api_hero import ITILSolution
+from glpi_api_hero import TicketValidation
+from glpi_api_hero import Task
+from glpi_api_hero import Item
+from glpi_api_hero import Actor
+from glpi_api_hero import LinkedTicket
 
 class Ticket(CommonDBTM):
    

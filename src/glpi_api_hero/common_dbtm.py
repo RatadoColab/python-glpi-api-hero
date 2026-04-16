@@ -1,4 +1,4 @@
-from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero import ApiCommunication
 
 class CommonDBTM:
     

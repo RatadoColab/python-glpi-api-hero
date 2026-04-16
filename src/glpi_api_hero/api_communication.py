@@ -10,8 +10,7 @@
 # Contact: andre.proto@ibge.gov.br
 
 import glpi_api
-from .exceptions import ApiConnectionError
-
+from exceptions import ApiConnectionError
 
 class ApiCommunication:
     """Class for API communication.
@@ -127,11 +126,11 @@ class ApiCommunication:
             user (str, optional): Username. When defined, it will be used instead usertoken. Defaults to None.
             passwd (str, optional): Password of the username filled in the last parameter. Defaults to None.
         """
-        ApiComunication.glpi_connection['url'] = url;
-        ApiComunication.glpi_connection['apptoken'] = apptoken;
-        ApiComunication.glpi_connection['usertooken'] = usertooken;
-        ApiComunication.glpi_connection['user'] = user;
-        ApiComunication.glpi_connection['passwd'] = passwd;   
+        ApiCommunication.glpi_connection['url'] = url;
+        ApiCommunication.glpi_connection['apptoken'] = apptoken;
+        ApiCommunication.glpi_connection['usertooken'] = usertoken;
+        ApiCommunication.glpi_connection['user'] = user;
+        ApiCommunication.glpi_connection['passwd'] = passwd;   
         
     @staticmethod
     def setProfileEntity(profiles_id: int, entities_id: int, is_recursive: bool = True) -> bool:
@@ -156,4 +155,3 @@ class ApiCommunication:
             ApiCommunication._setGlpiEnv()
             return True
         raise ApiConnectionError(f'Unable to connect on GLPI API server')
-        

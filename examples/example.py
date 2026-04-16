@@ -1,15 +1,28 @@
-from glpi_api_hero.api_communication import ApiCommunication
-from glpi_api_hero.ticket import Ticket
+# from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero import ApiCommunication
+# from glpi_api_hero.ticket import Ticket
+# from glpi_api_hero import Ticket
+import sys
 
-user = 'sp-andre.proto'
-passwd = 'sdsadasdasdad'
-url = 'https://betacentral.ibge.gov.br/apírest.php'
-apptoken = 'DSFdsfADSFADSgADFGFDSGDASFG'
+# user = 'sp-andre.proto'
+# passwd = 'sdsadasdasdad'
+# url = 'https://betacentral.ibge.gov.br/apírest.php'
+# apptoken = 'DSFdsfADSFADSgADFGFDSGDASFG'
 
-ApiCommunication.setConnectionParameters(url = url, apptolen=apptoken, user=user, passwd=passwd );
-ApiCommunication.initSession();
+# Dados de acesso da VM (local) do Leonardo.
+user = 'glpi'
+passwd = 'glpi'
+url = 'http://127.0.0.1:8080/api.php/v1'
+apptoken = 'lzzWhduotvkyWFuNRMKgS4tYjAOjButzqhAwSoUs'
 
-ApiCommunication.setProfileEntity(profiles_id=4, entities_id=111, is_recursive=True);
+ApiCommunication.setConnectionParameters(url = url, apptolen=apptoken, user=user, passwd=passwd )
+ApiCommunication.initSession()
+print("Seção iniciada.")
+ApiCommunication.setProfileEntity(profiles_id=4, entities_id=111, is_recursive=True)
+ApiCommunication.killSession()
+print("Seção finalizada.")
+
+sys.exit()
 
 # Exemplo de criação de chamado
 input = {
@@ -30,3 +43,4 @@ input = {
 }
 
 Ticket.addFollowUp(ticket_id, input)
+
