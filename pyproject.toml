@@ -12,7 +12,7 @@ authors = [
 ]
 keywords = ["GLPI", "ITSM", "helpdesk", "API", "REST", "client"]
 license = { file = "LICENSE" }
-readme = "README.md
+readme = "README.md"
 requires-python = ">=3.10"
 
 dependencies = [

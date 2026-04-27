@@ -10,7 +10,9 @@
 # Contact: andre.proto@ibge.gov.br
 
 import glpi_api
-from exceptions import ApiConnectionError
+from typing import Any
+# from exceptions import ApiConnectionError
+from glpi_api_hero.exceptions import ApiConnectionError
 
 class ApiCommunication:
     """Class for API communication.
@@ -19,9 +21,9 @@ class ApiCommunication:
     glpi = None
     logged_user = None
     
-    glpi_connection = { url: '', apptoken: '', usertoken: '', user: None, passwd: None }
-    glpi_environment = { profiles_id: None, entities_id: None, is_recursive: True }
-    last_glpi_environment = { profiles_id: -1, entities_id: -1, is_recursive: None }
+    glpi_connection = { 'url': '', 'apptoken': '', 'usertoken': '', 'user': None, 'passwd': None }
+    glpi_environment = { 'profiles_id': None, 'entities_id': None, 'is_recursive': True }
+    last_glpi_environment = { 'profiles_id': -1, 'entities_id': -1, 'is_recursive': None }
     
     @staticmethod
     def _resetGlpiEnv() -> None:

@@ -1,5 +1,4 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
+from glpi_api_hero import CommonDBTM
 
 class Task(CommonDBTM):
-    # To do
-    pass
+    _glpi_name = 'TicketTask'

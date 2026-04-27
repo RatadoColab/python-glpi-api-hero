@@ -3,7 +3,6 @@ from .__version__ import __version__
 from .exceptions import GlpiApiHeroError, ApiConnectionError, ApiOperationError
 from .api_communication import ApiCommunication
 from .common_dbtm import CommonDBTM
-from .ticket import Ticket
 from .actor import Actor
 from .item import Item
 from .user import User
@@ -11,11 +10,12 @@ from .group import Group
 from .computer import Computer
 from .cluster import Cluster
 from .network_equipment import NetworkEquipment
-from .itilfollowup import ITILFollowUp
+from .itilfollowup import ITILFollowup
 from .itilsolution import ITILSolution
 from .ticket_validation import TicketValidation
 from .task import Task
 from .linked_ticket import LinkedTicket
+from .ticket import Ticket
 
 __all__ = [
     "__version__",
@@ -24,7 +24,6 @@ __all__ = [
     "ApiOperationError",
     "ApiCommunication",
     "CommonDBTM",
-    "Ticket",
     "Actor",
     "Item",
     "User",
@@ -32,9 +31,10 @@ __all__ = [
     "Computer",
     "Cluster",
     "NetworkEquipment",
-    "ITILFollowUp",
+    "ITILFollowup",
     "ITILSolution",
     "TicketValidation",
     "Task",
     "LinkedTicket",
+    "Ticket",
 ]

@@ -1,6 +1,6 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
+from glpi_api_hero import CommonDBTM
 
-class ITILFollowUp(CommonDBTM):
+class ITILFollowup(CommonDBTM):
     # To do
     pass
 
