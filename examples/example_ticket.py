@@ -21,34 +21,35 @@ data_string = datetime.now().strftime('%Y%m%d%H%M%S')
 # Ticket: métodos herdados de CommonDBTM
 # ==============================================================
 
-# # Criar chamado
-# input_ticket = {
-#     'name': 'Chamado de teste ' + data_string,
-#     'content': 'Descrição detalhada do problema encontrado.',
-#     'itilcategories_id': '672',
-#     'type': 1,               # 1=Incident, 2=Request
-#     'priority': 3,           # 1=Very Low ... 6=Very High
-#     '_user_requester': 9407,
-# }
-# result = Ticket.add(input_ticket)
-# ticket_id = result[0]['id']
-# print("Chamado criado. ID:", ticket_id)
+# Criar chamado
+input_ticket = {
+    'name': 'Problemas ao inicializar minha máquina.',
+    'content': 'Descrição detalhada do problema encontrado...',
+    'itilcategories_id': '672',
+    'type': 1,               # 1=Incident, 2=Request
+    'priority': 3,           # 1=Very Low ... 6=Very High
+    '_user_requester': 9407,
+}
+result = Ticket.add(input_ticket)
+ticket_id = result[0]['id']
+print("Chamado criado. ID:", ticket_id)
+sys.exit()
 
-# # # Obter chamado pelo ID
-# ticket = Ticket.get(ticket_id)
-# print("Chamado obtido:", ticket.get('name'))
+# # Obter chamado pelo ID
+ticket = Ticket.get(ticket_id)
+print("Chamado obtido:", ticket.get('name'))
 
-# # # Atualizar chamado
-# Ticket.update({'id': ticket_id, 'priority': 4})
-# print("Chamado atualizado.")
+# # Atualizar chamado
+Ticket.update({'id': ticket_id, 'priority': 4})
+print("Chamado atualizado.")
 
-# # Listar todos os chamados (paginado)
-# todos = Ticket.get_all_items(range='0-9')
-# print("Total de chamados retornados:", len(todos))
+# Listar todos os chamados (paginado)
+todos = Ticket.get_all_items(range='0-9')
+print("Total de chamados retornados:", len(todos))
 
 # # Buscar chamados (search)
-resultado_busca = Ticket.search(criteria=[{'field': 1, 'searchtype': 'contains', 'value': 'teste'}])
-print("Busca realizada.")
+resultado_busca = Ticket.search(criteria=[{'field': 1, 'searchtype': 'contains', 'value': 'problemas'}])
+# print("Busca realizada.")
 print(resultado_busca)
 sys.exit()
 

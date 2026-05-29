@@ -13,11 +13,11 @@ passwd = 'glpi'
 url = 'http://127.0.0.1:8080/api.php/v1'
 apptoken = 'lzzWhduotvkyWFuNRMKgS4tYjAOjButzqhAwSoUs'
 
+# Definição dos parâmetros de conexão.
 ApiCommunication.setConnectionParameters(url = url, apptoken=apptoken, user=user, passwd=passwd )
-
+# Iniciar seção.
 ApiCommunication.initSession()
-print("Seção iniciada.")
-
+# Configuração de perfil e entidade.
 ApiCommunication.setProfileEntity(profiles_id=4, entities_id=111, is_recursive=True)
 
 data_string = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -45,3 +45,5 @@ print("Acompanhamento adicionado!")
 
 ApiCommunication.killSession()
 print("Seção finalizada.")
+
+

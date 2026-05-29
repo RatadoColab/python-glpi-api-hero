@@ -7,3 +7,6 @@ class ApiConnectionError(GlpiApiHeroError, ValueError):
 
 class ApiOperationError(GlpiApiHeroError, ValueError):
     """Errors related to API Operations."""
+
+class ApiRateLimitError(ApiOperationError):
+    """Raised when the GLPI API returns HTTP 429 Too Many Requests."""

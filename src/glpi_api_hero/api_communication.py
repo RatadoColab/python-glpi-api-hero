@@ -11,8 +11,7 @@
 
 import glpi_api
 from typing import Any
-# from exceptions import ApiConnectionError
-from glpi_api_hero.exceptions import ApiConnectionError
+from glpi_api_hero.exceptions import ApiConnectionError, ApiOperationError, ApiRateLimitError
 
 class ApiCommunication:
     """Class for API communication.
@@ -134,6 +133,30 @@ class ApiCommunication:
         ApiCommunication.glpi_connection['user'] = user;
         ApiCommunication.glpi_connection['passwd'] = passwd;   
         
+    @staticmethod
+    def call(fn, *args, **kwargs):
+        """Executa uma chamada à API GLPI mapeando GLPIError para exceções do projeto.
+
+        Args:
+            fn: Método do objeto glpi_api a ser chamado.
+            *args: Argumentos posicionais repassados ao método.
+            **kwargs: Argumentos nomeados repassados ao método.
+
+        Raises:
+            ApiRateLimitError: Quando a API retorna HTTP 429.
+            ApiOperationError: Para qualquer outro erro da API GLPI.
+
+        Returns:
+            O retorno original do método chamado.
+        """
+        try:
+            return fn(*args, **kwargs)
+        except glpi_api.GLPIError as exc:
+            msg = str(exc)
+            if '429' in msg:
+                raise ApiRateLimitError(msg)
+            raise ApiOperationError(msg)
+
     @staticmethod
     def setProfileEntity(profiles_id: int, entities_id: int, is_recursive: bool = True) -> bool:
         """Set profile and entity of current session

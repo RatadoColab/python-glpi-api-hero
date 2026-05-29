@@ -16,31 +16,31 @@ class CommonDBTM:
 
     @classmethod
     def add(cls, *items):
-        return ApiCommunication.glpi.add(cls._itemtype(), *items)
+        return ApiCommunication.call(ApiCommunication.glpi.add, cls._itemtype(), *items)
 
     @classmethod
     def update(cls, *items):
-        return ApiCommunication.glpi.update(cls._itemtype(), *items)
+        return ApiCommunication.call(ApiCommunication.glpi.update, cls._itemtype(), *items)
 
     @classmethod
     def delete(cls, *items, **kwargs):
-        return ApiCommunication.glpi.delete(cls._itemtype(), *items, **kwargs)
+        return ApiCommunication.call(ApiCommunication.glpi.delete, cls._itemtype(), *items, **kwargs)
 
     @classmethod
     def search(cls, **kwargs):
-        return ApiCommunication.glpi.search(cls._itemtype(), **kwargs)
+        return ApiCommunication.call(ApiCommunication.glpi.search, cls._itemtype(), **kwargs)
 
     @classmethod
     def get(cls, items_id, **kwargs):
-        return ApiCommunication.glpi.get_item(cls._itemtype(), items_id, **kwargs)
+        return ApiCommunication.call(ApiCommunication.glpi.get_item, cls._itemtype(), items_id, **kwargs)
 
     @classmethod
     def get_all_items(cls, **kwargs):
-        return ApiCommunication.glpi.get_all_items(cls._itemtype(), **kwargs)
+        return ApiCommunication.call(ApiCommunication.glpi.get_all_items, cls._itemtype(), **kwargs)
 
     @classmethod
     def get_sub_items(cls, items_id, sub_itemtype, **kwargs):
-        return ApiCommunication.glpi.get_sub_items(cls._itemtype(), items_id, sub_itemtype, **kwargs)
+        return ApiCommunication.call(ApiCommunication.glpi.get_sub_items, cls._itemtype(), items_id, sub_itemtype, **kwargs)
 
     @classmethod
     def list_search_options(cls, items_id, raw=False):
