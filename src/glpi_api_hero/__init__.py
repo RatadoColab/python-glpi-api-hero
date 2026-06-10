@@ -15,7 +15,9 @@ from .itilsolution import ITILSolution
 from .ticket_validation import TicketValidation
 from .task import Task
 from .linked_ticket import LinkedTicket
+from .location import Location
 from .ticket import Ticket
+from .resume_dashboard import ResumeDashboard
 
 __all__ = [
     "__version__",
@@ -36,5 +38,7 @@ __all__ = [
     "TicketValidation",
     "Task",
     "LinkedTicket",
+    "Location",
     "Ticket",
+    "ResumeDashboard",
 ]
