@@ -27,6 +27,7 @@ pip install dist/arquivo.whl
 | [docs/computers.md](docs/computers.md) | `Computer` | Computadores — inventário, hardware, software, rede e chamados vinculados |
 | [docs/locations.md](docs/locations.md) | `Location` | Localizações — hierarquia, itens associados e integração com o catálogo SDA |
 | [docs/sub-resources.md](docs/sub-resources.md) | `Actor`, `Item`, `Task`, `LinkedTicket`, `ITILFollowup`, `ITILSolution`, `TicketValidation`, `Cluster`, `NetworkEquipment` | Sub-recursos de chamados e classes stub (que não tem métodos próprios de domínio ainda) |
+| [docs/ticket_dashboard.md](docs/ticket_dashboard.md) | `TicketDashboard` | Dashboard visual de chamados por período e categoria — gera dashboard no formato HTML ou imagem estática com KPIs e gráficos |
 
 ## Pré-requisito: sessão ativa
 

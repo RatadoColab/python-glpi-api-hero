@@ -26,3 +26,10 @@ Thumbs.db
 
 # Examples
 examples/
+
+# Dashboards gerados
+dashboard_glpi.html
+dashboard_glpi.png
+
+# (Teste) Geraçção de dashboards em linguagem natural.
+src/glpi_api_hero/resume_dashboard.py

@@ -18,6 +18,7 @@ from .linked_ticket import LinkedTicket
 from .location import Location
 from .ticket import Ticket
 from .resume_dashboard import ResumeDashboard
+from .ticket_dashboard import TicketDashboard
 
 __all__ = [
     "__version__",
@@ -41,4 +42,5 @@ __all__ = [
     "Location",
     "Ticket",
     "ResumeDashboard",
+    "TicketDashboard",
 ]
