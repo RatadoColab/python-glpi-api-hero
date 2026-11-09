@@ -11,12 +11,14 @@ from glpi_api_hero import Glpi
 from glpi_api_hero.core.legacy_rest import LegacyRestConnector
 from glpi_api_hero.core.types import OperationResult
 from glpi_api_hero.exceptions import (
+    AuthenticationError,
     BadRequestError,
     ConfigurationError,
+    GlpiAPIError,
     GlpiConnectionError,
     PartialOperationError,
 )
-from tests.conftest import BASE_URL, USER_TOKEN, GlpiMock
+from tests.conftest import APP_TOKEN, BASE_URL, SESSION_TOKEN, USER_TOKEN, GlpiMock
 
 
 def _connector() -> LegacyRestConnector:
@@ -220,10 +222,15 @@ def test_download_document_stays_in_directory(session: GlpiMock, tmp_path: Path)
         session: Simulator with an open session.
         tmp_path: Temporary directory.
     """
-    session.override("GET", "Document/9", 200, "file-bytes")
+    session.override("GET", "Document/9", 200, "file-bytes",
+                     headers={"Content-Disposition": 'attachment; filename="../report.pdf"'})
     target = _connector().download_document(9, tmp_path, filename="../escape.txt")
     assert target == tmp_path / "escape.txt"
     assert target.read_text() == "file-bytes"
+    # Without a name, one request is enough: the name comes from Content-Disposition
+    session.reset_calls()
+    assert _connector().download_document(9, tmp_path) == tmp_path / "report.pdf"
+    assert [request["path"] for request in session.captured()] == ["Document/9"]
     with pytest.raises(ConfigurationError):
         _connector().download_document(9, tmp_path / "missing")
 
@@ -240,3 +247,116 @@ def test_kill_session_closes_even_on_error(session: GlpiMock) -> None:
         Glpi.disconnect()
     assert not Glpi.is_connected()
     assert connector._session_token is None
+
+
+def test_upload_error_purges_the_empty_document(session: GlpiMock, tmp_path: Path) -> None:
+    """A refused file leaves no empty Document behind.
+
+    Args:
+        session: Simulator with an open session.
+        tmp_path: Temporary directory.
+    """
+    source = tmp_path / "virus.exe"
+    source.write_text("x")
+    session.override("POST", "Document", 201, {"id": 55, "upload_result": {"filename": [
+        {"name": "virus.exe", "error": "Filetype not allowed"}]}})
+    with pytest.raises(BadRequestError, match="Filetype not allowed") as info:
+        _connector().upload_document("Bad", source)
+    assert info.value.error_code == "ERROR_GLPI_INVALID_DOCUMENT"
+    purge = session.captured()[-1]
+    assert (purge["method"], purge["path"], purge["query"]) == ("DELETE", "Document", {"force_purge": "true"})
+    assert purge["body"] == {"input": [{"id": 55}]}
+
+
+def test_results_are_reconciled_with_sent_ids(session: GlpiMock) -> None:
+    """Ids without a result (GLPI skips missing items on update) are reported as failed.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.override("PUT", "Location", 207, ["ERROR_GLPI_PARTIAL_UPDATE", [{"1": True, "message": ""}]])
+    with pytest.raises(PartialOperationError) as info:
+        _connector().update_items("Location", [{"id": 1}, {"id": 999}])
+    assert info.value.results == [OperationResult(1, True), OperationResult(999, False, "Item not found")]
+    assert "1 of 2 items failed" in str(info.value)
+
+
+def test_non_json_answers_stay_in_the_hierarchy(session: GlpiMock, glpi_mock: GlpiMock) -> None:
+    """HTML or PHP warnings instead of JSON raise ``GlpiAPIError``.
+
+    Args:
+        session: Simulator with an open session.
+        glpi_mock: Same simulator (used for a new login).
+    """
+    session.override("PUT", "Location", 200, "<html>proxy</html>")
+    with pytest.raises(GlpiAPIError, match="invalid JSON"):
+        _connector().update_items("Location", [{"id": 1}])
+    glpi_mock.override("GET", "initSession", 200, "<html>login page</html>")
+    with pytest.raises(GlpiAPIError):
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
+
+
+def test_exceptions_do_not_keep_credentials(glpi_mock: GlpiMock) -> None:
+    """The response kept by an exception has its credential headers masked.
+
+    Args:
+        glpi_mock: Active GLPI simulator.
+    """
+    glpi_mock.override("GET", "initSession", 401, ["ERROR_GLPI_LOGIN", "refused"])
+    with pytest.raises(AuthenticationError) as info:
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
+    headers = info.value.response.request.headers
+    assert headers["Authorization"] == "***"
+    assert headers["App-Token"] == "***"
+    # The request recorded by the transport itself is untouched
+    assert glpi_mock.captured()[0]["headers"]["Authorization"] == f"user_token {USER_TOKEN}"
+
+
+def test_connection_error_cause_is_masked(session: GlpiMock) -> None:
+    """The chained requests exception does not expose the session token.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.override("GET", "Location/1", error="connection")
+    with pytest.raises(GlpiConnectionError) as info:
+        _connector().get_item("Location", 1)
+    cause = info.value.__cause__
+    assert cause is not None
+    request = getattr(cause, "request", None)
+    assert request is None or SESSION_TOKEN not in str(request.headers)
+
+
+def test_verify_overrides_environment_bundle(glpi_mock: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The TLS setting is sent with every request, so REQUESTS_CA_BUNDLE cannot replace it.
+
+    Args:
+        glpi_mock: Active GLPI simulator.
+        monkeypatch: Pytest monkeypatch.
+    """
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/other.pem")
+    Glpi.connect(BASE_URL, user_token=USER_TOKEN, verify_tls=False)
+    seen = []
+    original = _connector()._http.request
+
+    def spy(*args: object, **kwargs: object) -> object:
+        """Record the TLS setting before sending."""
+        seen.append(kwargs.get("verify"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(_connector()._http, "request", spy)
+    _connector().get_config()
+    assert seen == [False]
+
+
+def test_metacriteria_fields_use_their_itemtype(session: GlpiMock) -> None:
+    """A uid in a meta criterion is resolved with the meta itemtype.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    _connector().search("User", [], metacriteria=[{"link": "AND", "itemtype": "Monitor", "field": "serial",
+                                                   "searchtype": "contains", "value": "m"}])
+    paths = [request["path"] for request in session.captured()]
+    assert paths == ["listSearchOptions/Monitor", "search/User"]
+    assert session.captured()[1]["query"]["criteria[0][field]"] == "5"

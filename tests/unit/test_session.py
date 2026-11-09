@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import pytest
 
 from glpi_api_hero import Glpi
-from glpi_api_hero.exceptions import ConfigurationError, NotFoundError
+from glpi_api_hero.exceptions import AuthenticationError, ConfigurationError, NotFoundError, ServerError
 from tests.conftest import APP_TOKEN, BASE_URL, SESSION_TOKEN, USER_TOKEN, GlpiMock
 
 
@@ -99,15 +100,19 @@ def test_verify_tls_default(glpi_mock: GlpiMock) -> None:
     assert Glpi.connector().verify is True
 
 
-def test_verify_tls_ca_bundle_and_disabled(glpi_mock: GlpiMock, caplog: pytest.LogCaptureFixture) -> None:
+def test_verify_tls_ca_bundle_and_disabled(glpi_mock: GlpiMock, caplog: pytest.LogCaptureFixture,
+                                           tmp_path: Path) -> None:
     """A CA bundle path is accepted; disabling TLS logs a warning.
 
     Args:
         glpi_mock: Active GLPI simulator.
         caplog: Log capture.
+        tmp_path: Temporary directory.
     """
-    Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN, verify_tls="/etc/ssl/ca.pem")
-    assert Glpi.connector().verify == "/etc/ssl/ca.pem"
+    bundle = tmp_path / "ca.pem"
+    bundle.write_text("-----BEGIN CERTIFICATE-----")
+    Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN, verify_tls=str(bundle))
+    assert Glpi.connector().verify == str(bundle)
     with caplog.at_level(logging.WARNING, logger="glpi_api_hero"):
         Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN, verify_tls=False)
     assert Glpi.connector().verify is False
@@ -115,7 +120,7 @@ def test_verify_tls_ca_bundle_and_disabled(glpi_mock: GlpiMock, caplog: pytest.L
 
 
 def test_profile_and_entity_only_sent_when_changed(session: GlpiMock) -> None:
-    """``set_profile_entity`` skips the API when nothing changes.
+    """``set_profile_entity`` skips the API when nothing changes; a profile change resends the entity.
 
     Args:
         session: Simulator with an open session.
@@ -125,7 +130,7 @@ def test_profile_and_entity_only_sent_when_changed(session: GlpiMock) -> None:
     Glpi.set_profile_entity(4, 1, is_recursive=False)
     Glpi.set_profile_entity(5, 1, is_recursive=False)
     assert _paths(session) == ["POST changeActiveProfile", "POST changeActiveEntities",
-                               "POST changeActiveEntities", "POST changeActiveProfile"]
+                               "POST changeActiveEntities", "POST changeActiveProfile", "POST changeActiveEntities"]
     assert session.captured()[1]["body"] == {"entities_id": 1, "is_recursive": True}
     assert session.captured()[2]["body"] == {"entities_id": 1, "is_recursive": False}
 
@@ -205,3 +210,63 @@ def test_glpi_is_not_instantiable() -> None:
     """``Glpi`` is a class-level facade."""
     with pytest.raises(TypeError):
         Glpi()
+
+
+@pytest.mark.parametrize("value", ["", 0, None, "/no/such/ca.pem"])
+def test_invalid_verify_tls_values(value: object, glpi_mock: GlpiMock) -> None:
+    """Falsy non-boolean values or missing CA paths never disable TLS silently.
+
+    Args:
+        value: Invalid ``verify_tls``.
+        glpi_mock: Active GLPI simulator.
+    """
+    with pytest.raises(ConfigurationError):
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN, verify_tls=value)  # type: ignore[arg-type]
+    assert glpi_mock.captured() == []
+
+
+def test_reconnect_after_expired_session(session: GlpiMock, caplog: pytest.LogCaptureFixture) -> None:
+    """A failed logout of the old session does not prevent a new login.
+
+    Args:
+        session: Simulator with an open session.
+        caplog: Log capture.
+    """
+    session.override("GET", "killSession", 401, ["ERROR_SESSION_TOKEN_INVALID", "expired"])
+    with caplog.at_level(logging.WARNING, logger="glpi_api_hero"):
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
+    assert Glpi.is_connected()
+    assert any("could not close the previous GLPI session" in rec.message for rec in caplog.records)
+
+
+def test_block_error_wins_over_logout_error(glpi_mock: GlpiMock) -> None:
+    """The error raised in a ``with`` block is not replaced by a logout failure.
+
+    Args:
+        glpi_mock: Active GLPI simulator.
+    """
+    glpi_mock.override("GET", "killSession", 500, ["ERROR_UNKNOWN", "boom"])
+    with pytest.raises(KeyError), Glpi.session(BASE_URL, APP_TOKEN, user_token=USER_TOKEN):
+        raise KeyError("original")
+    assert not Glpi.is_connected()
+    with pytest.raises(ServerError), Glpi.session(BASE_URL, APP_TOKEN, user_token=USER_TOKEN):
+        pass
+
+
+def test_failed_login_releases_the_connector(glpi_mock: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The HTTP pool of a connector whose login failed is closed.
+
+    Args:
+        glpi_mock: Active GLPI simulator.
+        monkeypatch: Pytest monkeypatch.
+    """
+    import requests
+
+    closed = []
+    original = requests.Session.close
+    monkeypatch.setattr(requests.Session, "close", lambda self: (closed.append(self), original(self)))
+    glpi_mock.override("GET", "initSession", 401, ["ERROR_GLPI_LOGIN", "refused"])
+    with pytest.raises(AuthenticationError):
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
+    assert len(closed) == 1
+    assert not Glpi.is_connected()
