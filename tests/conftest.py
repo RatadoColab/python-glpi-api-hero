@@ -98,7 +98,7 @@ class GlpiMock:
             status: HTTP status code to answer.
             body: JSON-serializable body, or a ``str`` sent as raw text.
             headers: Extra response headers.
-            error: ``"connection"`` to raise a connection error instead of answering.
+            error: ``"connection"`` or ``"timeout"`` to raise a network error instead of answering.
         """
         self.overrides[(method.upper(), path)] = {
             "status": status, "body": body, "headers": headers or {}, "error": error,
@@ -134,6 +134,8 @@ class GlpiMock:
             # Simulated network failure
             if override["error"] == "connection":
                 raise requests.exceptions.ConnectionError("simulated connection failure")
+            if override["error"] == "timeout":
+                raise requests.exceptions.ReadTimeout("simulated read timeout")
             return _encode(override["status"], override["body"], override["headers"])
         return self._default(request, path, query)
 

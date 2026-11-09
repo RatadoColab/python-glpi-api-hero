@@ -269,6 +269,47 @@ class CommonDBTM:
             return
         cls._connector().delete_items(cls._itemtype(), list(ids), force_purge=force_purge, history=history)
 
+    # --------------------------------------------------------------- sub-items
+    @classmethod
+    def add_sub_item(cls, items_id: int, sub_itemtype: str, data: dict[str, Any]) -> int:
+        """Create one sub-item under an item.
+
+        Args:
+            items_id: Parent id.
+            sub_itemtype: Child itemtype.
+            data: Field values (not modified).
+
+        Returns:
+            The id of the created sub-item.
+        """
+        results = cls._connector().add_sub_items(cls._itemtype(), items_id, sub_itemtype, [dict(data)])
+        return _single_id(results)
+
+    @classmethod
+    def update_sub_item(cls, items_id: int, sub_itemtype: str, sub_id: int, data: dict[str, Any]) -> None:
+        """Update one sub-item under an item.
+
+        Args:
+            items_id: Parent id.
+            sub_itemtype: Child itemtype.
+            sub_id: Sub-item id.
+            data: Field values to change (not modified).
+        """
+        update = functools.partial(cls._connector().update_sub_items, cls._itemtype(), items_id)
+        _single(update, sub_itemtype, [{"id": sub_id, **data}])
+
+    @classmethod
+    def delete_sub_item(cls, items_id: int, sub_itemtype: str, sub_id: int) -> None:
+        """Delete one sub-item under an item.
+
+        Args:
+            items_id: Parent id.
+            sub_itemtype: Child itemtype.
+            sub_id: Sub-item id.
+        """
+        delete = functools.partial(cls._connector().delete_sub_items, cls._itemtype(), items_id)
+        _single(delete, sub_itemtype, [sub_id])
+
     # ------------------------------------------------------------------ helpers
     @classmethod
     def _for(cls, itemtype: str) -> type[CommonDBTM]:
