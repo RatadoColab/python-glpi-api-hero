@@ -153,6 +153,9 @@ class GlpiMock:
         parts = [p for p in path.split("/") if p]
         payload = _json_body(request)
         items = payload.get("input", []) if isinstance(payload, dict) else []
+        # GLPI only accepts objects (or a list of objects) as input
+        if method in ("POST", "PUT", "DELETE") and any(not isinstance(item, dict) for item in items):
+            return _encode(400, ["ERROR_BAD_ARRAY", "input parameter must be an array of objects"])
         # Session endpoints
         if parts == ["initSession"]:
             return _encode(200, {"session_token": SESSION_TOKEN})
@@ -174,7 +177,9 @@ class GlpiMock:
         if parts[:1] == ["search"] and len(parts) == 2:
             total = zlib.crc32(json.dumps(sorted(query)).encode()) % 40 + 1
             if ("range", "0-0") in query:
-                return _encode(200, {"totalcount": total, "count": 0, "data": []},
+                # GLPI ranges are inclusive: 0-0 returns one row, and 206 when more rows exist
+                status = 206 if total > 1 else 200
+                return _encode(status, {"totalcount": total, "count": 1, "data": [{"1": f"{parts[1]}-1", "2": 1}]},
                                {"Content-Range": f"0-0/{total}"})
             data = [{"1": f"{parts[1]}-1", "2": 1}, {"1": f"{parts[1]}-2", "2": 2}]
             return _encode(200, {"totalcount": 2, "count": 2, "data": data},
@@ -209,7 +214,7 @@ class GlpiMock:
             created = [{"id": 101 + idx, "message": ""} for idx, _ in enumerate(items)]
             return _encode(201, created)
         # PUT and DELETE answer one status per input item
-        done = [{str(_item_id(item)): True, "message": ""} for item in items]
+        done = [{str(item["id"]): True, "message": ""} for item in items]
         return _encode(200, done)
 
     @staticmethod
@@ -250,19 +255,7 @@ class GlpiMock:
             return _encode(200, rows)
         if method == "POST":
             return _encode(201, [{"id": 201 + idx, "message": ""} for idx, _ in enumerate(items)])
-        return _encode(200, [{str(_item_id(item)): True, "message": ""} for item in items])
-
-
-def _item_id(item: Any) -> Any:
-    """Return the ``id`` of an input item, or the item itself when it is not a dict.
-
-    Args:
-        item: One element of the ``input`` payload.
-
-    Returns:
-        The id used in the per-item status.
-    """
-    return item.get("id") if isinstance(item, dict) else item
+        return _encode(200, [{str(item["id"]): True, "message": ""} for item in items])
 
 
 def _encode(status: int, body: Any, headers: dict[str, str] | None = None) -> tuple[int, dict[str, str], str]:
@@ -343,6 +336,10 @@ def reset_api_state() -> None:
     # Imported lazily so the simulator stays usable if the package layout changes
     from glpi_api_hero import ApiCommunication
 
+    # Close the pooled HTTP connections of the previous session
+    session = getattr(ApiCommunication.glpi, "session", None)
+    if session is not None:
+        session.close()
     ApiCommunication.ERROR = ""
     ApiCommunication.glpi = None
     ApiCommunication.logged_user = None

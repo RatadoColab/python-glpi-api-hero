@@ -24,7 +24,9 @@ from tests.characterization.scenarios import MAPPERS, SCENARIOS
 from tests.conftest import (
     APP_TOKEN,
     BASE_URL,
+    PASSWORD,
     USER_TOKEN,
+    USERNAME,
     GlpiMock,
     mocked_glpi,
     reset_api_state,
@@ -141,7 +143,7 @@ def _open_session(kind: str | None) -> None:
         api.setConnectionParameters(BASE_URL, APP_TOKEN, usertoken=USER_TOKEN)
         api.initSession()
     elif kind == "basic":
-        api.setConnectionParameters(BASE_URL, APP_TOKEN, user="test-user", passwd="test-password")
+        api.setConnectionParameters(BASE_URL, APP_TOKEN, user=USERNAME, passwd=PASSWORD)
         api.initSession()
 
 
@@ -204,10 +206,12 @@ def run_scenario(scenario: dict[str, Any], glpi: GlpiMock) -> dict[str, Any]:
     result: Any = None
     error: BaseException | None = None
     args_after: list[Any] = []
+    original_args: list[Any] = []
     with _frozen_clock(), contextlib.redirect_stdout(stdout):
         for step in _steps(scenario):
             cls_name, method = step["call"].split(".", 1)
             args = resolve(copy.deepcopy(step.get("args", [])))
+            original_args = resolve(copy.deepcopy(step.get("args", [])))
             kwargs = resolve(copy.deepcopy(step.get("kwargs", {})))
             try:
                 result = getattr(resolve_class(cls_name), method)(*args, **kwargs)
@@ -219,11 +223,11 @@ def run_scenario(scenario: dict[str, Any], glpi: GlpiMock) -> dict[str, Any]:
 
     entry["requests"] = glpi.captured()
     if error is not None:
-        entry["raises"] = {"type": type(error).__name__, "message": str(error)}
+        message = None if scenario.get("message") == "type_only" else str(error)
+        entry["raises"] = {"type": type(error).__name__, "message": message}
     else:
         entry["returns"] = to_jsonable(result)
-    # Mutation of the caller's arguments is part of the observable behavior
-    original_args = resolve(copy.deepcopy(_steps(scenario)[-1].get("args", [])))
+    # Mutation of the caller's arguments (of the last executed step) is observable behavior
     if to_jsonable(args_after) != to_jsonable(original_args):
         entry["args_after"] = to_jsonable(args_after)
     if stdout.getvalue():
