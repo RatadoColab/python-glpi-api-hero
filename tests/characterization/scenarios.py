@@ -15,6 +15,8 @@ Scenario keys:
     responses: Optional endpoint overrides (``method``, ``path``, ``status``, ``body``,
         ``headers``, ``error``).
     state: When true, the session state after the call is recorded.
+    since: ``"v2"`` for scenarios of methods created by the normalized contract
+        (no point A recording).
     known_bug: Description of a known bug recorded as it behaves today.
 """
 
@@ -355,6 +357,16 @@ SCENARIOS: list[dict[str, Any]] = [
      "known_bug": "debug output written with print()"},
     {"id": "dashboard-generate-without-plotly", "call": "TicketDashboard.generate",
      "args": ["2026-01-01", "2026-01-31"], "kwargs": {"data": {"categorias": {}}}},
+    # ------------------------------------------------- new in the normalized contract (no point A)
+    {"id": "commondbtm-add-sub-item", "since": "v2", "call": "Computer.add_sub_item",
+     "args": [3, "Item_OperatingSystem", {"operatingsystems_id": 1}]},
+    {"id": "commondbtm-update-sub-item", "since": "v2", "call": "Computer.update_sub_item",
+     "args": [3, "Item_OperatingSystem", 11, {"operatingsystems_id": 2}]},
+    {"id": "commondbtm-delete-sub-item", "since": "v2", "call": "Computer.delete_sub_item",
+     "args": [3, "Item_OperatingSystem", 11]},
+    {"id": "commondbtm-add-many-empty", "since": "v2", "call": "Location.add_many", "args": [[]]},
+    {"id": "commondbtm-update-many-empty", "since": "v2", "call": "Location.update_many", "args": [[]]},
+    {"id": "commondbtm-delete-many-empty", "since": "v2", "call": "Location.delete_many", "args": [[]]},
     {"id": "dashboard-collect-data-categories", "call": "TicketDashboard.collect_data",
      "args": ["2026-01-01", "2026-01-31", {"Infrastructure": 3, "Systems": 5}]},
 ]

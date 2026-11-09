@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -624,6 +625,57 @@ class LegacyRestConnector(Connector):
             One result per child.
         """
         return self._write("DELETE", [itemtype, items_id, sub_itemtype], [{"id": child_id} for child_id in ids])
+
+    # ------------------------------------------------------------- documents
+    def upload_document(self, name: str, filepath: str | Path) -> int:
+        """Upload a file as a new Document (multipart request).
+
+        Args:
+            name: Document name.
+            filepath: Path of the file to upload.
+
+        Returns:
+            The id of the created Document.
+
+        Raises:
+            ConfigurationError: When the file does not exist.
+        """
+        path = Path(filepath)
+        if not path.is_file():
+            raise ConfigurationError(f"file not found: {path}")
+        manifest = json.dumps({"input": {"name": name, "_filename": [path.name]}})
+        with path.open("rb") as handle:
+            # The JSON Content-Type of the session must not be sent with multipart bodies
+            body = self._call("POST", ["Document"], ok=(201,), headers={"Content-Type": None},
+                              data={"uploadManifest": manifest}, files={"filename[0]": (path.name, handle)})
+        return int(body["id"])
+
+    def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None) -> Path:
+        """Download the file of a Document.
+
+        Args:
+            documents_id: Document id.
+            dirpath: Existing directory where the file is written.
+            filename: File name; defaults to the name stored in GLPI.
+
+        Returns:
+            Path of the written file.
+
+        Raises:
+            ConfigurationError: When ``dirpath`` is not a directory.
+        """
+        directory = Path(dirpath)
+        if not directory.is_dir():
+            raise ConfigurationError(f"directory not found: {directory}")
+        if filename is None:
+            filename = str(self.get_item("Document", documents_id).get("filename") or f"document-{documents_id}")
+        # Only the base name is used, so a stored name cannot escape the directory
+        target = directory / Path(filename).name
+        response = self._send("GET", ["Document", documents_id], headers={"Accept": "application/octet-stream"})
+        if response.status_code != 200:
+            raise self._error(response)
+        target.write_bytes(response.content)
+        return target
 
 
 def _input_id(item: Any) -> int | None:
