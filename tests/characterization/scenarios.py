@@ -364,6 +364,13 @@ SCENARIOS: list[dict[str, Any]] = [
      "args": [3, "Item_OperatingSystem", 11, {"operatingsystems_id": 2}]},
     {"id": "commondbtm-delete-sub-item", "since": "v2", "call": "Computer.delete_sub_item",
      "args": [3, "Item_OperatingSystem", 11]},
+    {"id": "location-updatefromlist-duplicate-list-answer", "since": "v2", "call": "Location.updateFromList",
+     "args": [[{"name": "Hidden", "code": "H01"}]],
+     "responses": [{"method": "GET", "path": "Location", "status": 200, "body": _EXISTING_LOCATIONS},
+                   {"method": "POST", "path": "Location", "status": 400,
+                    "body": ["ERROR_GLPI_ADD",
+                             [{"id": False, "message": "Duplicate entry 'Hidden' for key 'unicity'"}]]}],
+     "known_bug": "Duplicate entry swallowed as {'skipped': True} with a print() warning"},
     {"id": "commondbtm-add-many-empty", "since": "v2", "call": "Location.add_many", "args": [[]]},
     {"id": "commondbtm-update-many-empty", "since": "v2", "call": "Location.update_many", "args": [[]]},
     {"id": "commondbtm-delete-many-empty", "since": "v2", "call": "Location.delete_many", "args": [[]]},
@@ -383,6 +390,7 @@ _D19 = "D19: user token sent in the Authorization header (known bug fixed)"
 _D20 = "D20: search options, field_id and field_uid query listSearchOptions (known bug fixed)"
 _D21 = "D21: Group.deleteUser sends input [{'id': N}] through CommonDBTM (known bug fixed)"
 _D23 = "D23: getLoggedUser reads User/<glpiID> of the session (known bug fixed)"
+_D29 = "D29: a failed single delete reads the item back to tell missing (NotFoundError) from refused"
 _D22 = "D22: CommonDBTM.add takes one dict; a non-dict payload fails before any request"
 
 V2: dict[str, dict[str, Any]] = {
@@ -404,8 +412,12 @@ V2: dict[str, dict[str, Any]] = {
     "commondbtm-delete-one": {"args": [7]},
     "commondbtm-delete-many": {"call": "Location.delete_many", "args": [[7, 8]]},
     "commondbtm-delete-force-purge": {"args": [7]},
-    "commondbtm-delete-error-glpi-delete": {"args": [999], "known_bug": None,
-                                            "fixed": "single delete failure raises NotFoundError (D8)"},
+    "commondbtm-delete-error-glpi-delete": {
+        "args": [999], "known_bug": None, "requests_change": _D29, "fixed": _D29,
+        "responses": [{"method": "DELETE", "path": "Location", "status": 400,
+                       "body": ["ERROR_GLPI_DELETE", [{"999": False, "message": "Item not found"}]]},
+                      {"method": "GET", "path": "Location/999", "status": 404,
+                       "body": ["ERROR_ITEM_NOT_FOUND", "Item not found"]}]},
     "commondbtm-delete-400": {"args": [7]},
     "commondbtm-get-all-items": {"call": "Location.get_all"},
     "commondbtm-get-all-items-range-sort": {"call": "Location.get_all"},

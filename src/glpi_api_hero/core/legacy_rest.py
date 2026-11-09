@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ import requests
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.types import OperationResult
 from glpi_api_hero.exceptions import (
+    BadRequestError,
     ConfigurationError,
     GlpiAPIError,
     GlpiConnectionError,
@@ -25,6 +27,9 @@ from glpi_api_hero.exceptions import (
 logger = logging.getLogger("glpi_api_hero")
 
 DEFAULT_TIMEOUT = 30.0
+
+# Request headers that carry credentials
+_SECRET_HEADERS = ("Authorization", "Session-Token", "App-Token")
 
 
 def _convert_bools(params: dict[str, Any]) -> dict[str, Any]:
@@ -100,8 +105,9 @@ class LegacyRestConnector(Connector):
         self._username = username
         self._password = password
         self._session_token: str | None = None
+        self._verify = _validate_verify(verify)
         self._http = requests.Session()
-        self._http.verify = verify
+        self._http.verify = self._verify
 
     # ------------------------------------------------------------- transport
     @property
@@ -111,7 +117,7 @@ class LegacyRestConnector(Connector):
         Returns:
             ``True``, ``False`` or the CA bundle path.
         """
-        return self._http.verify
+        return self._verify
 
     def _redact(self, text: str) -> str:
         """Remove every known secret from a text.
@@ -127,6 +133,27 @@ class LegacyRestConnector(Connector):
                 text = text.replace(secret, "***")
         return text
 
+    @staticmethod
+    def _scrubbed(request: Any) -> Any:
+        """Return a copy of a sent request with its credential headers masked.
+
+        Exceptions keep a reference to the response (and its request), which may be
+        logged or serialized; they get the masked copy, never the original.
+
+        Args:
+            request: ``requests.PreparedRequest`` (or ``None``).
+
+        Returns:
+            The masked copy, or ``request`` itself when it has no headers.
+        """
+        if request is None or getattr(request, "headers", None) is None:
+            return request
+        masked = request.copy()
+        for name in _SECRET_HEADERS:
+            if name in masked.headers:
+                masked.headers[name] = "***"
+        return masked
+
     def _endpoint(self, *parts: Any) -> str:
         """Build the absolute URL of an endpoint.
 
@@ -139,7 +166,8 @@ class LegacyRestConnector(Connector):
         return "/".join([self.url, *(str(part) for part in parts)])
 
     def _send(self, method: str, parts: Iterable[Any], *, params: Any = None, body: Any = None,
-              headers: dict[str, Any] | None = None, files: Any = None, data: Any = None) -> requests.Response:
+              headers: dict[str, Any] | None = None, files: Any = None, data: Any = None,
+              stream: bool = False) -> requests.Response:
         """Send one HTTP request, wrapping network errors.
 
         Args:
@@ -150,6 +178,7 @@ class LegacyRestConnector(Connector):
             headers: Per-request headers.
             files: Multipart files.
             data: Multipart form fields.
+            stream: Do not read the body immediately.
 
         Returns:
             The HTTP response.
@@ -159,24 +188,29 @@ class LegacyRestConnector(Connector):
         """
         url = self._endpoint(*parts)
         try:
+            # verify is passed explicitly so REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE cannot override it
             response = self._http.request(method, url, params=params, json=body, headers=headers, files=files,
-                                          data=data, timeout=self.timeout)
+                                          data=data, timeout=self.timeout, verify=self._verify, stream=stream)
         except requests.exceptions.RequestException as exc:
+            exc.request = self._scrubbed(exc.request)
             raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
         logger.debug("%s %s -> %s", method, "/".join(str(p) for p in parts), response.status_code)
         if "Content-Range" in response.headers:
             logger.debug("Content-Range: %s", response.headers["Content-Range"])
         return response
 
-    def _error(self, response: requests.Response) -> GlpiAPIError | PartialOperationError:
+    def _error(self, response: requests.Response,
+               items: Sequence[Any] | None = None) -> GlpiAPIError | PartialOperationError:
         """Build the exception that matches an error response.
 
         Args:
             response: HTTP response with an error status.
+            items: ``input`` payload of a write, to reconcile per-item results.
 
         Returns:
             The exception to raise.
         """
+        response.request = self._scrubbed(response.request)
         error_code: str | None = None
         detail: Any = None
         try:
@@ -187,9 +221,9 @@ class LegacyRestConnector(Connector):
         if isinstance(payload, list) and payload and isinstance(payload[0], str) and payload[0].startswith("ERROR"):
             error_code = payload[0]
             detail = payload[1] if len(payload) > 1 else ""
-        if isinstance(detail, list):
-            # Bulk write where every item failed: per-item results instead of a message
-            results = _parse_results(detail)
+        if isinstance(detail, list) or response.status_code == 207:
+            # Bulk write where items failed: per-item results instead of a message
+            results = _reconcile(_parse_results(detail if isinstance(detail, list) else []), items)
             return PartialOperationError(self._redact(f"({error_code}) {_summary(results)}"), results,
                                          error_code=error_code)
         if error_code is not None:
@@ -223,10 +257,26 @@ class LegacyRestConnector(Connector):
             raise self._error(response)
         if not response.content:
             return None
+        return self._decode(response)
+
+    def _decode(self, response: requests.Response) -> Any:
+        """Decode a successful JSON body.
+
+        Args:
+            response: HTTP response.
+
+        Returns:
+            The decoded body.
+
+        Raises:
+            GlpiAPIError: When the body is not JSON (proxy page, PHP warning...).
+        """
         try:
             return response.json()
-        except ValueError:
-            return response.text
+        except ValueError as exc:
+            response.request = self._scrubbed(response.request)
+            message = self._redact(f"invalid JSON answer: {response.text[:200]}")
+            raise GlpiAPIError(message, status_code=response.status_code, response=response) from exc
 
     def _write(self, method: str, parts: Iterable[Any], items: Sequence[Any],
                params: dict[str, Any] | None = None) -> list[OperationResult]:
@@ -242,21 +292,21 @@ class LegacyRestConnector(Connector):
             One result per item.
 
         Raises:
-            PartialOperationError: When GLPI answers 207 (some items failed).
+            PartialOperationError: When some items failed (207, or 400 with per-item results).
         """
         response = self._send(method, parts, params=params, body={"input": list(items)})
-        if response.status_code == 207:
-            payload = response.json()
-            results = _parse_results(payload[1] if isinstance(payload, list) and len(payload) > 1 else [])
-            error_code = payload[0] if isinstance(payload, list) and payload else None
-            raise PartialOperationError(self._redact(f"({error_code}) {_summary(results)}"), results,
-                                        error_code=error_code)
+        # Additions return the created ids, so only updates and deletes are reconciled by id
+        sent = items if method != "POST" else None
         if response.status_code not in (200, 201, 204):
-            raise self._error(response)
+            raise self._error(response, sent)
         if not response.content:
             # 204 without body: every item succeeded
             return [OperationResult(id=_input_id(item), ok=True) for item in items]
-        return _parse_results(response.json())
+        results = _reconcile(_parse_results(self._decode(response)), sent)
+        failed = [result for result in results if not result.ok]
+        if failed:
+            raise PartialOperationError(self._redact(_summary(results)), results)
+        return results
 
     # --------------------------------------------------------------- session
     def init_session(self) -> None:
@@ -275,6 +325,8 @@ class LegacyRestConnector(Connector):
         else:
             headers["Authorization"] = f"user_token {self._user_token}"
         body = self._call("GET", ["initSession"], headers=headers, params={})
+        if not isinstance(body, dict) or not isinstance(body.get("session_token"), str):
+            raise GlpiAPIError("unexpected initSession answer: no session_token", status_code=200)
         self._session_token = body["session_token"]
         # Headers sent by every later request
         session_headers = {"Content-Type": "application/json", "Session-Token": self._session_token}
@@ -455,11 +507,13 @@ class LegacyRestConnector(Connector):
         for idx, criterion in enumerate(criteria):
             key = f"criteria[{idx}]" if parent is None else f"{parent}[criteria][{idx}]"
             params.update(self._criteria_params(itemtype, criterion.get("criteria", []), key))
+            # Meta criteria address the fields of their own itemtype
+            field_itemtype = criterion.get("itemtype", itemtype) if criterion.get("meta") else itemtype
             for name, value in criterion.items():
                 if name == "criteria":
                     continue
                 if name == "field":
-                    value = self.field_id(itemtype, value)
+                    value = self.field_id(field_itemtype, value)
                 elif isinstance(value, str):
                     # Single quotes are doubled, as the legacy search engine expects
                     value = value.replace("'", "''")
@@ -648,7 +702,17 @@ class LegacyRestConnector(Connector):
             # The JSON Content-Type of the session must not be sent with multipart bodies
             body = self._call("POST", ["Document"], ok=(201,), headers={"Content-Type": None},
                               data={"uploadManifest": manifest}, files={"filename[0]": (path.name, handle)})
-        return int(body["id"])
+        if not isinstance(body, dict) or not str(body.get("id", "")).isdigit():
+            raise GlpiAPIError("unexpected Document upload answer: no id", status_code=201)
+        documents_id = int(body["id"])
+        uploads = (body.get("upload_result") or {}).get("filename") or []
+        errors = [str(upload["error"]) for upload in uploads if isinstance(upload, dict) and upload.get("error")]
+        if errors:
+            # GLPI created the Document without its file: purge it before reporting the failure
+            self.delete_items("Document", [documents_id], force_purge=True)
+            raise BadRequestError(self._redact("; ".join(errors)), status_code=201,
+                                  error_code="ERROR_GLPI_INVALID_DOCUMENT")
+        return documents_id
 
     def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None) -> Path:
         """Download the file of a Document.
@@ -667,14 +731,19 @@ class LegacyRestConnector(Connector):
         directory = Path(dirpath)
         if not directory.is_dir():
             raise ConfigurationError(f"directory not found: {directory}")
-        if filename is None:
-            filename = str(self.get_item("Document", documents_id).get("filename") or f"document-{documents_id}")
-        # Only the base name is used, so a stored name cannot escape the directory
-        target = directory / Path(filename).name
-        response = self._send("GET", ["Document", documents_id], headers={"Accept": "application/octet-stream"})
-        if response.status_code != 200:
-            raise self._error(response)
-        target.write_bytes(response.content)
+        response = self._send("GET", ["Document", documents_id], headers={"Accept": "application/octet-stream"},
+                              stream=True)
+        try:
+            if response.status_code != 200:
+                raise self._error(response)
+            name = filename or _disposition_filename(response.headers.get("Content-Disposition"))
+            # Only the base name is used, so a stored name cannot escape the directory
+            target = directory / (Path(name).name if name else f"document-{documents_id}")
+            with target.open("wb") as handle:
+                for chunk in response.iter_content(chunk_size=65536):
+                    handle.write(chunk)
+        finally:
+            response.close()
         return target
 
 
@@ -753,3 +822,57 @@ def _retry_after(value: str | None) -> float | None:
         return float(value)
     except ValueError:
         return None
+
+
+def _reconcile(results: list[OperationResult], items: Sequence[Any] | None) -> list[OperationResult]:
+    """Align per-item results with the ids sent (update and delete).
+
+    GLPI omits the result of an item it could not find on update; every sent id
+    without a result is reported as failed.
+
+    Args:
+        results: Parsed results.
+        items: ``input`` payload (``None`` when unknown).
+
+    Returns:
+        One result per input item when the items carry ids, otherwise ``results``.
+    """
+    ids = [_input_id(item) for item in items or []]
+    if not ids or any(items_id is None for items_id in ids):
+        return results
+    by_id = {result.id: result for result in results if result.id is not None}
+    return [by_id.get(items_id, OperationResult(items_id, False, "Item not found")) for items_id in ids]
+
+
+def _validate_verify(verify: Any) -> bool | str:
+    """Check the TLS setting.
+
+    Args:
+        verify: ``True``, ``False`` or the path of a CA bundle (file or directory).
+
+    Returns:
+        The validated value.
+
+    Raises:
+        ConfigurationError: For other values or a missing CA bundle path.
+    """
+    if isinstance(verify, bool):
+        return verify
+    if isinstance(verify, (str, Path)) and str(verify) and Path(verify).exists():
+        return str(verify)
+    raise ConfigurationError(f"verify_tls must be True, False or an existing CA bundle path, got {verify!r}")
+
+
+def _disposition_filename(header: str | None) -> str | None:
+    """Extract the file name of a ``Content-Disposition`` header.
+
+    Args:
+        header: Header value.
+
+    Returns:
+        The file name, or ``None``.
+    """
+    if not header:
+        return None
+    match = re.search(r'filename="?([^";]+)"?', header)
+    return match.group(1) if match else None

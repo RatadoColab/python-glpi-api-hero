@@ -16,19 +16,13 @@ Example::
 from __future__ import annotations
 
 import functools
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
 
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.session import Glpi
 from glpi_api_hero.core.types import OperationResult
-from glpi_api_hero.exceptions import (
-    BadRequestError,
-    GlpiAPIError,
-    NotFoundError,
-    PartialOperationError,
-    PermissionDeniedError,
-)
+from glpi_api_hero.exceptions import BadRequestError, PartialOperationError
 
 
 class CommonDBTM:
@@ -190,8 +184,7 @@ class CommonDBTM:
         Raises:
             BadRequestError: When GLPI refuses the item.
         """
-        results = cls._connector().add_items(cls._itemtype(), [dict(data)])
-        return _single_id(results)
+        return _single_id(lambda: cls._connector().add_items(cls._itemtype(), [dict(data)]))
 
     @classmethod
     def add_many(cls, items: Sequence[dict[str, Any]]) -> list[int]:
@@ -222,7 +215,8 @@ class CommonDBTM:
         Raises:
             NotFoundError: When the item does not exist.
         """
-        _single(cls._connector().update_items, cls._itemtype(), [{"id": items_id, **data}])
+        connector = cls._connector()
+        _single(lambda: connector.update_items(cls._itemtype(), [{**data, "id": items_id}]), cls._itemtype(), items_id)
 
     @classmethod
     def update_many(cls, items: Sequence[dict[str, Any]]) -> None:
@@ -250,8 +244,9 @@ class CommonDBTM:
         Raises:
             NotFoundError: When the item does not exist.
         """
-        delete = functools.partial(cls._connector().delete_items, force_purge=force_purge, history=history)
-        _single(delete, cls._itemtype(), [items_id])
+        connector = cls._connector()
+        _single(lambda: connector.delete_items(cls._itemtype(), [items_id], force_purge=force_purge, history=history),
+                cls._itemtype(), items_id)
 
     @classmethod
     def delete_many(cls, ids: Sequence[int], *, force_purge: bool = False, history: bool = True) -> None:
@@ -282,8 +277,8 @@ class CommonDBTM:
         Returns:
             The id of the created sub-item.
         """
-        results = cls._connector().add_sub_items(cls._itemtype(), items_id, sub_itemtype, [dict(data)])
-        return _single_id(results)
+        connector = cls._connector()
+        return _single_id(lambda: connector.add_sub_items(cls._itemtype(), items_id, sub_itemtype, [dict(data)]))
 
     @classmethod
     def update_sub_item(cls, items_id: int, sub_itemtype: str, sub_id: int, data: dict[str, Any]) -> None:
@@ -295,8 +290,9 @@ class CommonDBTM:
             sub_id: Sub-item id.
             data: Field values to change (not modified).
         """
-        update = functools.partial(cls._connector().update_sub_items, cls._itemtype(), items_id)
-        _single(update, sub_itemtype, [{"id": sub_id, **data}])
+        connector = cls._connector()
+        _single(lambda: connector.update_sub_items(cls._itemtype(), items_id, sub_itemtype, [{**data, "id": sub_id}]),
+                sub_itemtype, sub_id)
 
     @classmethod
     def delete_sub_item(cls, items_id: int, sub_itemtype: str, sub_id: int) -> None:
@@ -307,8 +303,9 @@ class CommonDBTM:
             sub_itemtype: Child itemtype.
             sub_id: Sub-item id.
         """
-        delete = functools.partial(cls._connector().delete_sub_items, cls._itemtype(), items_id)
-        _single(delete, sub_itemtype, [sub_id])
+        connector = cls._connector()
+        _single(lambda: connector.delete_sub_items(cls._itemtype(), items_id, sub_itemtype, [sub_id]),
+                sub_itemtype, sub_id)
 
     # ------------------------------------------------------------------ helpers
     @classmethod
@@ -337,64 +334,68 @@ def _bound_class(itemtype: str) -> type[CommonDBTM]:
     return type(itemtype, (CommonDBTM,), {"_glpi_name": itemtype})
 
 
-def _single(operation: Any, target: str, payload: list[Any]) -> list[OperationResult]:
-    """Run a one-item write and turn a per-item failure into a single-item error.
+def _failure(write: Callable[[], list[OperationResult]]) -> tuple[list[OperationResult], str, str | None]:
+    """Run a one-item write and collect its per-item failure, if any.
 
     Args:
-        operation: Connector write method (possibly partially applied).
-        target: Itemtype (first argument of ``operation``).
-        payload: One-element payload.
+        write: The connector call.
+
+    Returns:
+        ``(results, failure_message, error_code)``; the message is empty on success.
+    """
+    try:
+        results = write()
+    except PartialOperationError as exc:
+        # GLPI reports a one-item failure as per-item results
+        failed = exc.failed or exc.results
+        message = "; ".join(result.message for result in failed if result.message) or "item not processed"
+        return exc.results, message, exc.error_code
+    failed = [result for result in results if not result.ok]
+    if failed:
+        return results, failed[0].message or "item not processed", None
+    return results, "", None
+
+
+def _single(write: Callable[[], list[OperationResult]], itemtype: str, items_id: int) -> list[OperationResult]:
+    """Run a one-item update or delete and turn a per-item failure into one error.
+
+    GLPI only explains per-item failures with translated text, so the item is
+    read back to tell a missing item from a refused operation.
+
+    Args:
+        write: The connector call.
+        itemtype: Itemtype of the written item.
+        items_id: Id of the written item.
 
     Returns:
         The results.
 
     Raises:
-        PermissionDeniedError: When GLPI reports a missing right for the item.
-        NotFoundError: When GLPI reports any other per-item failure (usually a missing item).
+        NotFoundError: When the item does not exist.
+        PermissionDeniedError: When the item cannot be read either.
+        BadRequestError: When the item exists but GLPI refused the operation (rights, rules...).
     """
-    try:
-        results = operation(target, payload)
-    except PartialOperationError as exc:
-        # A one-item bulk failure is reported by GLPI as per-item results
-        message = "; ".join(result.message for result in exc.failed if result.message) or str(exc)
-        raise _item_error(message, exc.error_code) from exc
-    failed = [result for result in results if not result.ok]
-    if failed:
-        raise _item_error(failed[0].message or f"{target} item not processed", None)
-    return results
+    results, message, error_code = _failure(write)
+    if not message:
+        return results
+    # A missing (or unreadable) item raises NotFoundError (or PermissionDeniedError) here
+    Glpi.connector().get_item(itemtype, items_id)
+    raise BadRequestError(message, error_code=error_code)
 
 
-def _item_error(message: str, error_code: str | None) -> GlpiAPIError:
-    """Choose the error of a failed single-item write from the GLPI message.
-
-    GLPI only reports per-item failures as text: "You don't have permission..."
-    for rights and "Item not found" otherwise (messages may be translated).
+def _single_id(write: Callable[[], list[OperationResult]]) -> int:
+    """Run a one-item addition and return the created id.
 
     Args:
-        message: Per-item message.
-        error_code: GLPI error key of the response.
-
-    Returns:
-        ``PermissionDeniedError`` for rights messages, ``NotFoundError`` otherwise.
-    """
-    if "permission" in message.lower():
-        return PermissionDeniedError(message, error_code=error_code)
-    return NotFoundError(message, error_code=error_code)
-
-
-def _single_id(results: list[OperationResult]) -> int:
-    """Return the created id of a one-item addition.
-
-    Args:
-        results: Per-item results.
+        write: The connector call.
 
     Returns:
         The created id.
 
     Raises:
-        BadRequestError: When no id was returned.
+        BadRequestError: When GLPI refused the item.
     """
-    if not results or results[0].id is None:
-        message = results[0].message if results else "no id returned"
-        raise BadRequestError(message or "no id returned")
+    results, message, error_code = _failure(write)
+    if message or not results or results[0].id is None:
+        raise BadRequestError(message or "no id returned", error_code=error_code)
     return int(results[0].id)

@@ -21,7 +21,7 @@ from typing import Any
 
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.legacy_rest import DEFAULT_TIMEOUT, LegacyRestConnector
-from glpi_api_hero.exceptions import ConfigurationError
+from glpi_api_hero.exceptions import ConfigurationError, GlpiError
 
 logger = logging.getLogger("glpi_api_hero")
 
@@ -73,8 +73,14 @@ class Glpi:
         # The connector validates its parameters before the current session is closed
         connector = connector_class(url, app_token, user_token=user_token, username=username, password=password,
                                     verify=verify_tls, timeout=timeout)
-        cls.disconnect()
-        connector.init_session()
+        cls._close_quietly()
+        try:
+            connector.init_session()
+        except BaseException:
+            # Release the HTTP pool of the connector that could not log in
+            with contextlib.suppress(GlpiError):
+                connector.kill_session()
+            raise
         cls._connector = connector
 
     @classmethod
@@ -104,8 +110,23 @@ class Glpi:
         cls.connect(url, app_token, **kwargs)
         try:
             yield cls
-        finally:
+        except BaseException:
+            # The error of the block wins over a failure to log out
+            cls._close_quietly()
+            raise
+        cls.disconnect()
+
+    @classmethod
+    def _close_quietly(cls) -> None:
+        """Close the current session, logging (not raising) a logout failure.
+
+        An expired session cannot be killed on the server; that must not prevent a
+        new login nor hide the error that ended a ``with`` block.
+        """
+        try:
             cls.disconnect()
+        except GlpiError as exc:
+            logger.warning("could not close the previous GLPI session: %s", exc)
 
     @classmethod
     def is_connected(cls) -> bool:
@@ -147,6 +168,8 @@ class Glpi:
             connector.set_active_profile(profiles_id)
             cls._profile = profiles_id
             cls._logged_user = None
+            # GLPI resets the active entity to the profile default on a profile change
+            cls._entity = None
         if entities_id is not None and (entities_id, is_recursive) != cls._entity:
             connector.set_active_entities(entities_id, is_recursive)
             cls._entity = (entities_id, is_recursive)

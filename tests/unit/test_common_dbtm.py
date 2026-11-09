@@ -13,7 +13,6 @@ from glpi_api_hero.exceptions import (
     ConfigurationError,
     NotFoundError,
     PartialOperationError,
-    PermissionDeniedError,
 )
 from tests.conftest import GlpiMock
 
@@ -125,6 +124,11 @@ def test_add_refused_raises_bad_request(session: GlpiMock) -> None:
     session.override("POST", "Location", 201, [{"id": False, "message": "refused"}])
     with pytest.raises(BadRequestError, match="refused"):
         Location.add({"name": "a"})
+    # A list input makes GLPI answer with per-item results even for one item
+    session.override("POST", "Location", 400, ["ERROR_GLPI_ADD", [{"id": False, "message": "Duplicate entry 'a'"}]])
+    with pytest.raises(BadRequestError, match="Duplicate entry") as info:
+        Location.add({"name": "a"})
+    assert info.value.error_code == "ERROR_GLPI_ADD"
 
 
 def test_add_many(session: GlpiMock) -> None:
@@ -151,6 +155,11 @@ def test_update(session: GlpiMock) -> None:
     request = _request(session)
     assert (request["method"], request["path"]) == ("PUT", "Location")
     assert request["body"] == {"input": [{"id": 7, "comment": "x"}]}
+    # The explicit id always wins over an id inside the data
+    Location.update(5, {"id": 9, "name": "z"})
+    assert _request(session, 1)["body"] == {"input": [{"id": 5, "name": "z"}]}
+    Location.update_sub_item(5, "Log", 11, {"id": 99})
+    assert _request(session, 2)["body"] == {"input": [{"id": 11}]}
 
 
 def test_update_missing_raises_not_found(session: GlpiMock) -> None:
@@ -159,7 +168,9 @@ def test_update_missing_raises_not_found(session: GlpiMock) -> None:
     Args:
         session: Simulator with an open session.
     """
-    session.override("PUT", "Location", 200, [{"9": False, "message": "Item not found"}])
+    # GLPI omits the result of a missing item on update
+    session.override("PUT", "Location", 400, ["ERROR_GLPI_UPDATE", []])
+    session.override("GET", "Location/9", 404, ["ERROR_ITEM_NOT_FOUND", "Item not found"])
     with pytest.raises(NotFoundError):
         Location.update(9, {"comment": "x"})
 
@@ -190,19 +201,23 @@ def test_delete(session: GlpiMock) -> None:
     assert _request(session, 1)["query"] == {"force_purge": "true", "history": "false"}
 
 
-def test_delete_missing_or_forbidden(session: GlpiMock) -> None:
-    """A failed single delete raises ``NotFoundError`` or ``PermissionDeniedError``.
+def test_delete_missing_or_refused(session: GlpiMock) -> None:
+    """A failed single delete raises ``NotFoundError`` for a missing item, ``BadRequestError`` otherwise.
+
+    The decision does not depend on the (translated) GLPI message.
 
     Args:
         session: Simulator with an open session.
     """
-    session.override("DELETE", "Location", 400, ["ERROR_GLPI_DELETE", [{"9": False, "message": "Item not found"}]])
-    with pytest.raises(NotFoundError, match="Item not found"):
+    session.override("DELETE", "Location", 400, ["ERROR_GLPI_DELETE", [{"9": False, "message": "Item introuvable"}]])
+    session.override("GET", "Location/9", 404, ["ERROR_ITEM_NOT_FOUND", "Item introuvable"])
+    with pytest.raises(NotFoundError):
         Location.delete(9)
     session.override("DELETE", "Location", 400, ["ERROR_GLPI_DELETE", [
-        {"9": False, "message": "You don't have permission to perform this action."}]])
-    with pytest.raises(PermissionDeniedError):
-        Location.delete(9)
+        {"8": False, "message": "Você não tem permissão para executar essa ação."}]])
+    with pytest.raises(BadRequestError, match="permissão") as info:
+        Location.delete(8)
+    assert type(info.value) is BadRequestError
 
 
 def test_delete_many(session: GlpiMock) -> None:
