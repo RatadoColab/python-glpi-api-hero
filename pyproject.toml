@@ -21,6 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dashboard = ["plotly>=5.0.0", "kaleido>=1.0.0"]
+dev = ["pytest>=8.0", "responses>=0.25", "ruff>=0.6", "build>=1.2", "pip-audit>=2.7"]
+# Temporary: only used to record the characterization fixture (removed in phase 02)
+characterization = ["glpi-api>=0.7.0"]
 
 [project.urls]
 Homepage = "https://github.com/RatadoColab/python-glpi-api-hero"
@@ -34,3 +37,36 @@ where = ["src"]
 
 # [project.scripts]
 # python-glpi-api-hero = "python-glpi-api-hero.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = ["src/glpi_api_hero/glpi_api.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# Legacy modules kept as they are until phases 02 and 04.1 (no production change in phase 01)
+"src/glpi_api_hero/__init__.py" = ["I001", "W292"]
+"src/glpi_api_hero/actor.py" = ["I001", "W292"]
+"src/glpi_api_hero/api_communication.py" = ["N802", "N803", "N815", "B904", "E501", "E703", "F541", "I001", "UP034", "W291", "W293"]
+"src/glpi_api_hero/cluster.py" = ["I001"]
+"src/glpi_api_hero/common_dbtm.py" = ["E501", "I001"]
+"src/glpi_api_hero/computer.py" = ["N802", "N803", "N815", "I001"]
+"src/glpi_api_hero/exceptions.py" = ["W292"]
+"src/glpi_api_hero/group.py" = ["N802", "N803", "N815", "I001"]
+"src/glpi_api_hero/item.py" = ["I001", "W292"]
+"src/glpi_api_hero/itilfollowup.py" = ["I001"]
+"src/glpi_api_hero/itilsolution.py" = ["I001"]
+"src/glpi_api_hero/linked_ticket.py" = ["I001", "W292"]
+"src/glpi_api_hero/location.py" = ["N802", "N803", "N815", "I001"]
+"src/glpi_api_hero/network_equipment.py" = ["I001", "W292"]
+"src/glpi_api_hero/task.py" = ["I001"]
+"src/glpi_api_hero/ticket.py" = ["N802", "N803", "N815", "I001"]
+"src/glpi_api_hero/ticket_dashboard.py" = ["N802", "N803", "N815", "B904", "B905", "I001", "UP045"]
+"src/glpi_api_hero/ticket_validation.py" = ["I001"]
+"src/glpi_api_hero/user.py" = ["N802", "N803", "N815", "I001"]
