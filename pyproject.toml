@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dashboard = ["plotly>=5.0.0", "kaleido>=1.0.0"]
 dev = ["pytest>=8.0", "responses>=0.25", "ruff>=0.6", "build>=1.2", "pip-audit>=2.7"]
-# Temporary: only used to record the characterization fixture (removed in phase 02)
+# Temporary: pins the characterization oracle to glpi-api (removed with the core dependency in phase 02)
 characterization = ["glpi-api>=0.7.0"]
 
 [project.urls]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import inspect
 import json
 from typing import Any
@@ -12,9 +13,11 @@ from tests.characterization.record import FIXTURE, resolve_class, run_scenario
 from tests.characterization.scenarios import SCENARIOS
 
 # Classes whose public methods must all be characterized
-CHARACTERIZED = ("CommonDBTM", "ApiCommunication", "User", "Group", "Computer", "Location", "Ticket")
+CHARACTERIZED = ("CommonDBTM", "ApiCommunication", "User", "Group", "Computer", "Location", "Ticket",
+                 "TicketDashboard")
 
 
+@functools.cache
 def _fixture() -> dict[str, dict[str, Any]]:
     """Load the recorded fixture indexed by scenario id.
 
@@ -32,15 +35,23 @@ def _calls(scenario: dict[str, Any]) -> list[str]:
         scenario: Scenario dict.
 
     Returns:
-        The main call plus the calls of its steps.
+        The calls of its steps, or the single ``call`` when there are no steps.
     """
-    return [scenario["call"], *(step["call"] for step in scenario.get("steps", []))]
+    if "steps" in scenario:
+        return [step["call"] for step in scenario["steps"]]
+    return [scenario["call"]]
 
 
 def test_scenario_ids_are_unique() -> None:
     """Scenario ids identify fixture entries, so they must be unique."""
     ids = [scenario["id"] for scenario in SCENARIOS]
     assert len(ids) == len(set(ids))
+
+
+def test_call_is_the_last_step() -> None:
+    """``call`` names what runs: with ``steps`` it must be the last step."""
+    mismatched = [s["id"] for s in SCENARIOS if "steps" in s and s["steps"][-1]["call"] != s["call"]]
+    assert mismatched == []
 
 
 def test_fixture_matches_scenario_table() -> None:
