@@ -1,5 +1,5 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.session import Glpi
 
 
 class Computer(CommonDBTM):
@@ -24,7 +24,7 @@ class Computer(CommonDBTM):
                 'value': name,
             }
         ]
-        return ApiCommunication.glpi.search('Computer', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Computer', criteria, **kwargs)
 
     @classmethod
     def getBySerial(cls, serial: str, **kwargs):
@@ -44,7 +44,7 @@ class Computer(CommonDBTM):
                 'value': serial,
             }
         ]
-        return ApiCommunication.glpi.search('Computer', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Computer', criteria, **kwargs)
 
     @classmethod
     def getByPatrimonio(cls, otherserial: str, **kwargs):
@@ -64,7 +64,7 @@ class Computer(CommonDBTM):
                 'value': otherserial,
             }
         ]
-        return ApiCommunication.glpi.search('Computer', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Computer', criteria, **kwargs)
 
     # Métodos de sistema operacional ################################
 
@@ -200,7 +200,7 @@ class Computer(CommonDBTM):
                 'value': computer_id,
             }
         ]
-        return ApiCommunication.glpi.search('Ticket', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Ticket', criteria, **kwargs)
 
     # Métodos de informações de compra ################################
 

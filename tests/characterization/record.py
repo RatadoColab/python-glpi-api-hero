@@ -1,7 +1,14 @@
 """Run the characterization scenarios and (re)write the fixture.
 
 Usage:
-    python -m tests.characterization.record
+    python -m tests.characterization.record --normalized
+
+The point A fields of each entry (``call``, ``args``, ``requests``, ``returns`` or
+``raises``...) were recorded with the former ``glpi-api`` transport (commit 58be2a7)
+and are never rewritten. ``--normalized`` runs the scenarios against the current
+code (with the overrides of ``scenarios.V2``) and stores the result under ``v2``.
+The requests must stay identical to point A unless the override declares
+``requests_change`` (the decision that changed them).
 
 The same runner is used by ``test_http_contract.py`` to compare the current
 behavior with the recorded fixture.
@@ -15,12 +22,13 @@ import datetime as _dt
 import importlib
 import io
 import json
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from tests.characterization.scenarios import MAPPERS, SCENARIOS
+from tests.characterization.scenarios import MAPPERS, SCENARIOS, normalized
 from tests.conftest import (
     APP_TOKEN,
     BASE_URL,
@@ -78,7 +86,7 @@ def resolve_class(name: str) -> Any:
 
 
 def resolve(value: Any) -> Any:
-    """Resolve ``@mapper:`` and ``@glpi:`` placeholders recursively.
+    """Resolve ``@mapper:`` and ``@connector:`` placeholders recursively.
 
     Args:
         value: Argument value from a scenario.
@@ -88,9 +96,9 @@ def resolve(value: Any) -> Any:
     """
     if isinstance(value, str) and value.startswith("@mapper:"):
         return MAPPERS[value.split(":", 1)[1]]
-    if isinstance(value, str) and value.startswith("@glpi:"):
-        # Bound method of the live connection object
-        return getattr(resolve_class("ApiCommunication").glpi, value.split(":", 1)[1])
+    if isinstance(value, str) and value.startswith("@connector:"):
+        # Bound method of the live connector
+        return getattr(resolve_class("Glpi").connector(), value.split(":", 1)[1])
     if isinstance(value, list):
         return [resolve(v) for v in value]
     if isinstance(value, dict):
@@ -173,9 +181,9 @@ def _inspect(kind: str | None) -> Any:
     Returns:
         The inspected value, or ``None``.
     """
-    api = resolve_class("ApiCommunication")
+    glpi = resolve_class("Glpi")
     if kind == "session_verify":
-        return api.glpi.session.verify if api.glpi is not None else None
+        return glpi.connector().verify if glpi.is_connected() else None
     return None
 
 
@@ -236,7 +244,7 @@ def run_scenario(scenario: dict[str, Any], glpi: GlpiMock) -> dict[str, Any]:
         api = resolve_class("ApiCommunication")
         entry["state"] = {"connection": to_jsonable(api.glpi_connection),
                           "environment": to_jsonable(api.glpi_environment),
-                          "connected": api.glpi is not None}
+                          "connected": resolve_class("Glpi").is_connected()}
     if scenario.get("inspect"):
         entry["inspect"] = to_jsonable(_inspect(scenario["inspect"]))
     if scenario.get("known_bug"):
@@ -245,28 +253,104 @@ def run_scenario(scenario: dict[str, Any], glpi: GlpiMock) -> dict[str, Any]:
     return entry
 
 
-def record_all() -> list[dict[str, Any]]:
-    """Run every scenario and return the fixture entries.
+def run_normalized(scenario: dict[str, Any], glpi: GlpiMock) -> dict[str, Any]:
+    """Execute the normalized (current) version of a scenario.
+
+    Args:
+        scenario: Scenario dict from ``SCENARIOS``.
+        glpi: Active simulator.
 
     Returns:
-        One entry per scenario, in table order.
+        The ``v2`` fixture entry (without ``id``).
     """
-    entries = []
-    for glpi in mocked_glpi():
-        for scenario in SCENARIOS:
-            entries.append(run_scenario(scenario, glpi))
-    return entries
+    current = normalized(scenario)
+    entry = run_scenario(current, glpi)
+    entry.pop("id")
+    # Decisions that justify a difference from point A are kept next to the result
+    for key in ("requests_change", "fixed"):
+        if key in current:
+            entry[key] = current[key]
+    return entry
 
 
-def main() -> None:
-    """Rewrite ``fixtures/requests.json`` from the current behavior."""
-    FIXTURE.parent.mkdir(parents=True, exist_ok=True)
-    entries = record_all()
-    # One scenario per line keeps the fixture diff readable scenario by scenario
+def expected_requests(fixture_entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the requests the current code must send for a fixture entry.
+
+    Args:
+        fixture_entry: One entry of the fixture.
+
+    Returns:
+        ``v2.requests`` when the requests changed by decision, otherwise the point A requests.
+    """
+    return fixture_entry["v2"].get("requests", fixture_entry.get("requests"))
+
+
+def load_fixture() -> list[dict[str, Any]]:
+    """Load the fixture entries.
+
+    Returns:
+        The entries in table order.
+    """
+    return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def write_fixture(entries: list[dict[str, Any]]) -> None:
+    """Write the fixture with one scenario per line (readable diffs).
+
+    Args:
+        entries: Fixture entries.
+    """
     lines = [json.dumps(entry, ensure_ascii=False, sort_keys=True) for entry in entries]
     FIXTURE.write_text("[\n" + ",\n".join(lines) + "\n]\n", encoding="utf-8")
-    print(f"{len(entries)} scenarios written to {FIXTURE}")
+
+
+def record_normalized() -> list[str]:
+    """Record the ``v2`` part of every fixture entry, keeping the point A fields.
+
+    Returns:
+        Ids whose requests differ from point A without a declared ``requests_change``
+        (the fixture is not written when this list is not empty).
+    """
+    entries = {entry["id"]: entry for entry in load_fixture()}
+    undeclared = []
+    for glpi in mocked_glpi():
+        for scenario in SCENARIOS:
+            # Scenarios created with the normalized contract have no point A fields
+            entry = entries.setdefault(scenario["id"], {"id": scenario["id"], "call": scenario["call"],
+                                                         "since": "v2"})
+            current = run_normalized(scenario, glpi)
+            if "requests" in entry:
+                # Unchanged requests are not duplicated under v2
+                if current["requests"] == entry["requests"]:
+                    current.pop("requests")
+                elif "requests_change" not in current:
+                    undeclared.append(scenario["id"])
+            entry["v2"] = current
+    if not undeclared:
+        write_fixture([entries[scenario["id"]] for scenario in SCENARIOS])
+    return undeclared
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Record the normalized part of the fixture.
+
+    Args:
+        argv: Command line arguments (defaults to ``sys.argv[1:]``).
+
+    Returns:
+        Process exit code.
+    """
+    args = sys.argv[1:] if argv is None else argv
+    if "--normalized" not in args:
+        print("point A was recorded with glpi-api (commit 58be2a7); use --normalized", file=sys.stderr)
+        return 2
+    undeclared = record_normalized()
+    if undeclared:
+        print("requests changed without requests_change: " + ", ".join(undeclared), file=sys.stderr)
+        return 1
+    print(f"{len(SCENARIOS)} scenarios recorded (v2) in {FIXTURE}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

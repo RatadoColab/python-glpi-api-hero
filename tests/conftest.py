@@ -334,21 +334,14 @@ def describe_request(request: requests.PreparedRequest) -> dict[str, Any]:
 def reset_api_state() -> None:
     """Reset the global session state kept by the library between tests."""
     # Imported lazily so the simulator stays usable if the package layout changes
-    from glpi_api_hero import ApiCommunication
+    from glpi_api_hero import ApiCommunication, Glpi
 
-    # Close the pooled HTTP connections of the previous session
-    session = getattr(ApiCommunication.glpi, "session", None)
-    if session is not None:
-        session.close()
-    ApiCommunication.ERROR = ""
-    ApiCommunication.glpi = None
-    ApiCommunication.logged_user = None
+    # Drops the connector and closes its pooled HTTP connections, without any request
+    Glpi._reset()
     ApiCommunication.glpi_connection = {"url": "", "apptoken": "", "usertoken": "",
                                         "user": None, "passwd": None}
     ApiCommunication.glpi_environment = {"profiles_id": None, "entities_id": None,
                                          "is_recursive": True}
-    ApiCommunication.last_glpi_environment = {"profiles_id": -1, "entities_id": -1,
-                                              "is_recursive": None}
 
 
 def mocked_glpi() -> Iterator[GlpiMock]:
