@@ -6,176 +6,121 @@
 # any later version. You should have received a copy of the GNU General Public
 # License along with this file. If not, see <https://www.gnu.org/licenses/>.
 #
-# Description: Class to extend methods for API communication.
+# Description: Temporary adapter keeping the former session API on top of Glpi.
+"""Former session API, kept as a thin adapter over :class:`~glpi_api_hero.core.session.Glpi`.
 
-import glpi_api
+New code should use ``Glpi`` directly. This module is removed in a later release.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
 from typing import Any
-from glpi_api_hero.exceptions import ApiConnectionError, ApiOperationError, ApiRateLimitError
+
+from glpi_api_hero.core.connector import Connector
+from glpi_api_hero.core.session import Glpi
+
 
 class ApiCommunication:
-    """Class for API communication.
-    """
-    ERROR = ''
-    glpi = None
-    logged_user = None
-    
-    glpi_connection = { 'url': '', 'apptoken': '', 'usertoken': '', 'user': None, 'passwd': None }
-    glpi_environment = { 'profiles_id': None, 'entities_id': None, 'is_recursive': True }
-    last_glpi_environment = { 'profiles_id': -1, 'entities_id': -1, 'is_recursive': None }
-    
-    @staticmethod
-    def _resetGlpiEnv() -> None:
-        ApiCommunication.last_glpi_environment['entities_id'] = -1;
-        ApiCommunication.last_glpi_environment['profiles_id'] = -1;
-        ApiCommunication.last_glpi_environment['is_recursive'] = None;
-        ApiCommunication.glpi_environment['profiles_id'] = None;
-        ApiCommunication.glpi_environment['entities_id'] = None;
-        ApiCommunication.glpi_environment['is_recursive'] = True;
+    """Former static session API delegating to :class:`Glpi`."""
+
+    # Parameters given to setConnectionParameters, used by initSession
+    glpi_connection: dict[str, Any] = {"url": "", "apptoken": "", "usertoken": "", "user": None, "passwd": None}
+    # Profile and entity requested by setProfileEntity
+    glpi_environment: dict[str, Any] = {"profiles_id": None, "entities_id": None, "is_recursive": True}
 
     @staticmethod
-    def _setGlpiEnv() -> None:
-        if (ApiCommunication.glpi_environment['profiles_id'] is not None) and (ApiCommunication.glpi_environment['profiles_id'] != ApiCommunication.last_glpi_environment['profiles_id']): 
-            ApiCommunication.glpi.set_active_profile(ApiCommunication.glpi_environment['profiles_id'])
-            ApiCommunication.last_glpi_environment['profiles_id'] = ApiCommunication.glpi_environment['profiles_id']
-        if (ApiCommunication.glpi_environment['entities_id'] is not None) and (
-        (ApiCommunication.glpi_environment['entities_id'] != ApiCommunication.last_glpi_environment['entities_id'] or ApiCommunication.glpi_environment['is_recursive'] != ApiCommunication.last_glpi_environment['is_recursive'])): 
-            ApiCommunication.glpi.set_active_entities(ApiCommunication.glpi_environment['entities_id'], ApiCommunication.glpi_environment['is_recursive'])
-            ApiCommunication.last_glpi_environment['entities_id'] = ApiCommunication.glpi_environment['entities_id']
-            ApiCommunication.last_glpi_environment['is_recursive'] = ApiCommunication.glpi_environment['is_recursive']
-    
-    @staticmethod
-    def getLoggedUser() -> dict:
-        """Get information about current logged user
-
-        Raises:
-            ApiConnectionError: When the connection with GLPI server has failed
-
-        Returns:
-            dict: User data
-        """
-        ApiCommunication.initSession()
-        if ApiCommunication.logged_user is None:
-            try:
-                session = ApiCommunication.glpi.get_full_session()
-                ApiCommunication.logged_user = ApiCommunication.get_item('User', session['glpiID'])
-            except glpi_api.GLPIError as err:
-                raise ApiConnectionError(str(err))
-        return ApiCommunication.logged_user
-    
-    @staticmethod
-    def getConn() -> Any:
-        """Return the original GLPI object that connects and operates GLPI methods.
-
-        Returns:
-            Any: The GLPI object or None
-        """
-        return ApiCommunication.glpi
-    
-    @staticmethod
-    def initSession(verify_certs: bool = False) -> bool:
-        """Initialize connection with GLPI API. Use setConnectionParameters before call this method.
+    def setConnectionParameters(url: str, apptoken: str, usertoken: str | None = None, user: str | None = None,
+                                passwd: str | None = None) -> None:
+        """Store the connection parameters (no request is sent).
 
         Args:
-            verify_certs (bool, optional): Verify certificate on connection. Defaults to False.
+            url: Base URL of ``apirest.php``.
+            apptoken: Application token.
+            usertoken: User API token.
+            user: Login; when given, it is used instead of the user token.
+            passwd: Password of ``user``.
+        """
+        ApiCommunication.glpi_connection = {"url": url, "apptoken": apptoken, "usertoken": usertoken,
+                                            "user": user, "passwd": passwd}
 
-        Raises:
-            ApiConnectionError: When the connection with GLPI server has failed
+    @staticmethod
+    def initSession(verify_certs: bool | str = True) -> bool:
+        """Open the session with the stored parameters, unless one is already open.
+
+        Args:
+            verify_certs: TLS verification (``True`` by default, or a CA bundle path).
 
         Returns:
-            bool: True if connection was completed
+            ``True`` once the session is open.
+
+        Raises:
+            ConfigurationError: When the parameters are missing.
+            AuthenticationError: When the credentials are refused.
+            GlpiConnectionError: When the server cannot be reached.
         """
-        
-        if ApiCommunication.glpi is None:
-            ApiCommunication.logged_user = None
-            try:
-                if ApiCommunication.glpi_connection['user'] is None:
-                    ApiCommunication.glpi = glpi_api.GLPI(ApiCommunication.glpi_connection['url'], ApiCommunication.glpi_connection['apptoken'], ApiCommunication.glpi_connection['usertoken'], verify_certs = verify_certs)
-                else:
-                    ApiCommunication.glpi = glpi_api.GLPI(ApiCommunication.glpi_connection['url'], ApiCommunication.glpi_connection['apptoken'], auth=(ApiCommunication.glpi_connection['user'], ApiCommunication.glpi_connection['passwd']), verify_certs = verify_certs)
-            except glpi_api.GLPIError as err:
-                raise ApiConnectionError(str(err))
+        if not Glpi.is_connected():
+            conn = ApiCommunication.glpi_connection
+            if conn["user"] is None:
+                Glpi.connect(conn["url"], conn["apptoken"], user_token=conn["usertoken"], verify_tls=verify_certs)
+            else:
+                Glpi.connect(conn["url"], conn["apptoken"], username=conn["user"], password=conn["passwd"],
+                             verify_tls=verify_certs)
         return True
-        
+
     @staticmethod
-    def killSession():
-        """Kill the current session with GLPI API Server.
-
-        Raises:
-            ApiConnectionError: When the connection with GLPI server has failed
-        """
-        ApiCommunication._resetGlpiEnv()
-        ApiCommunication.logged_user = None
-        if ApiCommunication.glpi is not None:
-            try:
-                ApiCommunication.glpi.kill_session()
-                ApiCommunication.glpi = None
-            except glpi_api.GLPIError as err:
-                ApiCommunication.glpi = None
-                raise ApiConnectionError(str(err))
-            
-    @staticmethod
-    def setConnectionParameters(url: str, apptoken: str, usertoken: str = None, user: str = None, passwd: str = None) -> None:
-        """Set the connection parameters before establish GLPI API server connection.
-        
-           Warninig: This method does not connect automatically with GLPI API Server. Call `initSession` after this method to do this. 
-
-        Args:
-            url (str): URL of GLPI API server (e.g. https://your.server/apirest.php) 
-            apptoken (str): APP Token
-            usertooken (str, optional): User Token. Defaults to None.
-            user (str, optional): Username. When defined, it will be used instead usertoken. Defaults to None.
-            passwd (str, optional): Password of the username filled in the last parameter. Defaults to None.
-        """
-        ApiCommunication.glpi_connection['url'] = url;
-        ApiCommunication.glpi_connection['apptoken'] = apptoken;
-        ApiCommunication.glpi_connection['usertooken'] = usertoken;
-        ApiCommunication.glpi_connection['user'] = user;
-        ApiCommunication.glpi_connection['passwd'] = passwd;   
-        
-    @staticmethod
-    def call(fn, *args, **kwargs):
-        """Executa uma chamada à API GLPI mapeando GLPIError para exceções do projeto.
-
-        Args:
-            fn: Método do objeto glpi_api a ser chamado.
-            *args: Argumentos posicionais repassados ao método.
-            **kwargs: Argumentos nomeados repassados ao método.
-
-        Raises:
-            ApiRateLimitError: Quando a API retorna HTTP 429.
-            ApiOperationError: Para qualquer outro erro da API GLPI.
-
-        Returns:
-            O retorno original do método chamado.
-        """
-        try:
-            return fn(*args, **kwargs)
-        except glpi_api.GLPIError as exc:
-            msg = str(exc)
-            if '429' in msg:
-                raise ApiRateLimitError(msg)
-            raise ApiOperationError(msg)
+    def killSession() -> None:
+        """Close the session; does nothing when no session is open."""
+        ApiCommunication.glpi_environment = {"profiles_id": None, "entities_id": None, "is_recursive": True}
+        Glpi.disconnect()
 
     @staticmethod
     def setProfileEntity(profiles_id: int, entities_id: int, is_recursive: bool = True) -> bool:
-        """Set profile and entity of current session
+        """Activate a profile and an entity (opening the session when needed).
 
         Args:
-            profiles_id (int): The profile ID
-            entities_id (int): The entity ID
-            is_recursive (bool, optional): Active/Deactive recursive entity. Defaults to True.
+            profiles_id: Profile id.
+            entities_id: Entity id.
+            is_recursive: Also activate the sub-entities.
 
-        Raises:
-            ApiConnectionError: When the connection with GLPI server has failed
-            
         Returns:
-            bool: True if the operation is done successfully, False otherwise.
+            ``True`` once applied.
         """
-        ApiCommunication.glpi_environment['profiles_id'] = profiles_id;
-        ApiCommunication.glpi_environment['entities_id'] = entities_id;
-        ApiCommunication.glpi_environment['is_recursive'] = is_recursive;
+        ApiCommunication.glpi_environment = {"profiles_id": profiles_id, "entities_id": entities_id,
+                                             "is_recursive": is_recursive}
         ApiCommunication.initSession()
-        if ApiCommunication.glpi:
-            ApiCommunication._setGlpiEnv()
-            return True
-        raise ApiConnectionError(f'Unable to connect on GLPI API server')
+        Glpi.set_profile_entity(profiles_id, entities_id, is_recursive)
+        return True
+
+    @staticmethod
+    def getLoggedUser() -> dict[str, Any]:
+        """Return the logged user (opening the session when needed).
+
+        Returns:
+            The ``User`` item of the session.
+        """
+        ApiCommunication.initSession()
+        return Glpi.logged_user()
+
+    @staticmethod
+    def getConn() -> Connector | None:
+        """Return the active connector.
+
+        Returns:
+            The connector, or ``None`` when no session is open.
+        """
+        return Glpi.connector() if Glpi.is_connected() else None
+
+    @staticmethod
+    def call(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Call a connector method (errors are already library exceptions).
+
+        Args:
+            fn: Callable to run.
+            *args: Positional arguments.
+            **kwargs: Keyword arguments.
+
+        Returns:
+            The result of ``fn``.
+        """
+        return fn(*args, **kwargs)

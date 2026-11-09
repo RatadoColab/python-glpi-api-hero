@@ -1,5 +1,6 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.session import Glpi
+
 
 class User(CommonDBTM):
 
@@ -46,7 +47,7 @@ class User(CommonDBTM):
                 'value': user_id,
             }
         ]
-        return ApiCommunication.glpi.search('Ticket', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Ticket', criteria, **kwargs)
 
     @classmethod
     def getByUsername(cls, username: str, **kwargs):
@@ -66,7 +67,7 @@ class User(CommonDBTM):
                 'value': username,
             }
         ]
-        return ApiCommunication.glpi.search('User', criteria=criteria, **kwargs)
+        return Glpi.connector().search('User', criteria, **kwargs)
 
     @classmethod
     def getByEmail(cls, email: str, **kwargs):
@@ -86,4 +87,4 @@ class User(CommonDBTM):
                 'value': email,
             }
         ]
-        return ApiCommunication.glpi.search('User', criteria=criteria, **kwargs)
+        return Glpi.connector().search('User', criteria, **kwargs)

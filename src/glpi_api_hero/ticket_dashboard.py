@@ -1,10 +1,9 @@
 import os
-from datetime import date
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
 
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.session import Glpi
+
 
 class TicketDashboard(CommonDBTM):
     """Dashboard visual de chamados GLPI por período e categoria ITIL.
@@ -17,11 +16,10 @@ class TicketDashboard(CommonDBTM):
 
     Exemplo:
 
-        from glpi_api_hero import ApiCommunication
+        from glpi_api_hero import Glpi
         from glpi_api_hero.ticket_dashboard import TicketDashboard
 
-        ApiCommunication.setConnectionParameters(url, apptoken, user_token=token)
-        ApiCommunication.initSession()
+        Glpi.connect(url, apptoken, user_token=token)
 
         caminho = TicketDashboard.generate(
             date_from="2024-04-24",
@@ -74,18 +72,9 @@ class TicketDashboard(CommonDBTM):
 
     @classmethod
     def _count(cls, criteria: list) -> int:
-        # glpi_api.search() descarta totalcount e retorna apenas data[].
-        # Acessa o JSON bruto para ler totalcount antes do descarte.
-        glpi   = ApiCommunication.glpi
-        params = glpi._add_criteria(criteria, cls._itemtype())
-        params["range"] = "0-0"
-        response = glpi.session.get(
-            glpi._set_method("search", cls._itemtype()),
-            params=params,
-        )
-        if response.status_code in (200, 206):
-            return int(response.json().get("totalcount", 0))
-        return 0
+        # The legacy body carries totalcount, which the normalized search drops
+        body = Glpi.connector().search_body(cls._itemtype(), criteria, range="0-0")
+        return int(body.get("totalcount", 0))
 
     @classmethod
     def _base(cls, date_from: str, date_to: str, cat_id: int = None) -> list:
@@ -146,7 +135,7 @@ class TicketDashboard(CommonDBTM):
             TicketDashboard.diagnose("2024-04-24", "2024-05-14")
             TicketDashboard.diagnose("2024-04-24", "2024-05-14", cat_id=3)
         """
-        glpi = ApiCommunication.glpi
+        connector = Glpi.connector()
         b    = cls._base(date_from, date_to, cat_id)
         bsla = cls._base_sla(cat_id)
 
@@ -165,13 +154,9 @@ class TicketDashboard(CommonDBTM):
         print(f"{'='*60}")
 
         for nome, criteria in queries:
-            params = glpi._add_criteria(criteria, cls._itemtype())
-            params["range"] = "0-0"
-            resp = glpi.session.get(glpi._set_method("search", cls._itemtype()), params=params)
-            body  = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            body  = connector.search_body(cls._itemtype(), criteria, range="0-0")
             total = body.get("totalcount", "N/A")
-            print(f"  {nome:<14} | HTTP {resp.status_code} | totalcount={total}")
-            print(f"               URL: {resp.url[:120]}")
+            print(f"  {nome:<14} | totalcount={total}")
 
         print(f"{'='*60}\n")
 
@@ -203,7 +188,7 @@ class TicketDashboard(CommonDBTM):
         cls,
         date_from: str,
         date_to: str,
-        categories: Optional[dict] = None,
+        categories: dict | None = None,
     ) -> dict:
         """Coleta métricas de chamados do GLPI para o período informado.
 
@@ -236,10 +221,10 @@ class TicketDashboard(CommonDBTM):
         cls,
         date_from: str,
         date_to: str,
-        categories: Optional[dict] = None,
+        categories: dict | None = None,
         output_path: str = "dashboard_glpi.html",
         titulo: str = "DTI",
-        data: Optional[dict] = None,
+        data: dict | None = None,
     ) -> str:
         """Gera o dashboard de chamados GLPI em HTML ou imagem.
 
@@ -538,6 +523,7 @@ class TicketDashboard(CommonDBTM):
         else:
             try:
                 import asyncio
+
                 import kaleido
                 asyncio.run(kaleido.write_fig(fig, abs_path))
             except ImportError:

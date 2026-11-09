@@ -1,5 +1,6 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.api_communication import ApiCommunication
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.session import Glpi
+
 
 class Group(CommonDBTM):
 
@@ -32,7 +33,7 @@ class Group(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return ApiCommunication.glpi.add('Group_User', {
+        return CommonDBTM._for('Group_User').add({
             'groups_id': group_id,
             'users_id': user_id,
         })
@@ -61,7 +62,7 @@ class Group(CommonDBTM):
         if link_id is None:
             return None
 
-        return ApiCommunication.glpi.delete('Group_User', [{'id': link_id}])
+        return CommonDBTM._for('Group_User').delete(link_id)
 
     @classmethod
     def getAllTickets(cls, group_id: int, actor_type: int = ASSIGNED, **kwargs):
@@ -91,7 +92,7 @@ class Group(CommonDBTM):
                 'value': group_id,
             }
         ]
-        return ApiCommunication.glpi.search('Ticket', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Ticket', criteria, **kwargs)
 
     @classmethod
     def getByName(cls, name: str, **kwargs):
@@ -111,4 +112,4 @@ class Group(CommonDBTM):
                 'value': name,
             }
         ]
-        return ApiCommunication.glpi.search('Group', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Group', criteria, **kwargs)

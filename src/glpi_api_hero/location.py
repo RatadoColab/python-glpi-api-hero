@@ -1,6 +1,6 @@
-from glpi_api_hero.common_dbtm import CommonDBTM
-from glpi_api_hero.api_communication import ApiCommunication
-from glpi_api_hero.exceptions import ApiOperationError
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.session import Glpi
+from glpi_api_hero.exceptions import GlpiAPIError
 
 
 class Location(CommonDBTM):
@@ -25,7 +25,7 @@ class Location(CommonDBTM):
                 'value': name,
             }
         ]
-        return ApiCommunication.glpi.search('Location', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Location', criteria, **kwargs)
 
     @classmethod
     def getByCode(cls, code, **kwargs):
@@ -45,7 +45,7 @@ class Location(CommonDBTM):
                 'value': code,
             }
         ]
-        return ApiCommunication.glpi.search('Location', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Location', criteria, **kwargs)
 
     @classmethod
     def getByCompleteName(cls, complete_name: str, **kwargs):
@@ -65,7 +65,7 @@ class Location(CommonDBTM):
                 'value': complete_name,
             }
         ]
-        return ApiCommunication.glpi.search('Location', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Location', criteria, **kwargs)
 
     # Métodos de hierarquia ################################
 
@@ -87,7 +87,7 @@ class Location(CommonDBTM):
                 'value': location_id,
             }
         ]
-        return ApiCommunication.glpi.search('Location', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Location', criteria, **kwargs)
 
     @classmethod
     def getRoots(cls, **kwargs):
@@ -106,7 +106,7 @@ class Location(CommonDBTM):
                 'value': 0,
             }
         ]
-        return ApiCommunication.glpi.search('Location', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Location', criteria, **kwargs)
 
     # Métodos de itens na localização ################################
 
@@ -128,7 +128,7 @@ class Location(CommonDBTM):
                 'value': location_id,
             }
         ]
-        return ApiCommunication.glpi.search('Computer', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Computer', criteria, **kwargs)
 
     @classmethod
     def getNetworkEquipments(cls, location_id: int, **kwargs):
@@ -148,7 +148,7 @@ class Location(CommonDBTM):
                 'value': location_id,
             }
         ]
-        return ApiCommunication.glpi.search('NetworkEquipment', criteria=criteria, **kwargs)
+        return Glpi.connector().search('NetworkEquipment', criteria, **kwargs)
 
     @classmethod
     def getTickets(cls, location_id: int, **kwargs):
@@ -168,7 +168,7 @@ class Location(CommonDBTM):
                 'value': location_id,
             }
         ]
-        return ApiCommunication.glpi.search('Ticket', criteria=criteria, **kwargs)
+        return Glpi.connector().search('Ticket', criteria, **kwargs)
 
     @classmethod
     def getUsers(cls, location_id: int, **kwargs):
@@ -188,7 +188,7 @@ class Location(CommonDBTM):
                 'value': location_id,
             }
         ]
-        return ApiCommunication.glpi.search('User', criteria=criteria, **kwargs)
+        return Glpi.connector().search('User', criteria, **kwargs)
 
     # Métodos de criação ################################
 
@@ -214,7 +214,7 @@ class Location(CommonDBTM):
              'locations_id': locations_id, 'entities_id': entities_id}
             for item in items
         ]
-        return cls.add(*mapped_items)
+        return cls.add_many(mapped_items)
 
     @classmethod
     def updateFromList(cls, items: list, locations_id: int = 0, entities_id: int = 0,
@@ -236,8 +236,8 @@ class Location(CommonDBTM):
         Returns:
             list: Operation results (one entry per processed item).
         """
-        # get_all_items returns full objects with a direct 'id' — no field ID ambiguity
-        all_locations = cls.get_all_items(range='0-9999')
+        # get_all returns full objects with a direct 'id' — no field ID ambiguity
+        all_locations = cls.get_all(range='0-9999')
         if not isinstance(all_locations, list):
             all_locations = []
 
@@ -264,13 +264,13 @@ class Location(CommonDBTM):
                 existing = by_name.get(name)
 
             if existing:
-                results.append(cls.update({**mapped, 'id': existing['id']}))
+                results.append(cls.update(existing['id'], mapped))
             else:
                 try:
                     results.append(cls.add(
                         {**mapped, 'locations_id': locations_id, 'entities_id': entities_id}
                     ))
-                except ApiOperationError as exc:
+                except GlpiAPIError as exc:
                     if 'Duplicate entry' in str(exc):
                         print(
                             f'[AVISO] "{name}" já existe no GLPI mas não foi encontrada via API. '

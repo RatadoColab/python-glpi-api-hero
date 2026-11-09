@@ -358,3 +358,67 @@ SCENARIOS: list[dict[str, Any]] = [
     {"id": "dashboard-collect-data-categories", "call": "TicketDashboard.collect_data",
      "args": ["2026-01-01", "2026-01-31", {"Infrastructure": 3, "Systems": 5}]},
 ]
+
+
+# ---------------------------------------------------------------------------
+# Normalized contract (phase 02): overrides applied on top of each scenario.
+#
+# Keys: call/args/kwargs/steps (new names and signatures, D7), known_bug (None when
+# fixed), fixed (what was corrected), requests_change (decision that changed the
+# requests sent; without it the requests must stay identical to point A).
+# ---------------------------------------------------------------------------
+_D19 = "D19: user token sent in the Authorization header (known bug fixed)"
+_D20 = "D20: search options, field_id and field_uid query listSearchOptions (known bug fixed)"
+_D21 = "D21: Group.deleteUser sends input [{'id': N}] through CommonDBTM (known bug fixed)"
+_D23 = "D23: getLoggedUser reads User/<glpiID> of the session (known bug fixed)"
+_D22 = "D22: CommonDBTM.add takes one dict; a non-dict payload fails before any request"
+
+V2: dict[str, dict[str, Any]] = {
+    "session-set-connection-parameters": {"known_bug": None,
+                                          "fixed": "user token stored under 'usertoken'"},
+    "session-init-user-token": {"known_bug": None, "requests_change": _D19, "fixed": _D19},
+    "session-init-insecure-default": {"known_bug": None, "fixed": "TLS verified by default"},
+    "session-set-profile-entity-404": {"known_bug": None, "fixed": "mapped to NotFoundError"},
+    "session-get-logged-user": {"known_bug": None, "requests_change": _D23, "fixed": _D23},
+    "session-call-get-config": {"args": ["@connector:get_config"]},
+    "session-call-429": {"args": ["@connector:get_config"]},
+    "commondbtm-add-many": {"call": "Location.add_many", "args": [[{"name": "loc-a"}, {"name": "loc-b"}]]},
+    "commondbtm-add-207": {"call": "Location.add_many", "args": [[{"name": "loc-a"}, {"name": "loc-a"}]]},
+    "commondbtm-update-one": {"args": [7, {"name": "loc-x"}]},
+    "commondbtm-update-many": {"call": "Location.update_many",
+                               "args": [[{"id": 7, "name": "loc-x"}, {"id": 8, "name": "loc-y"}]]},
+    "commondbtm-update-207": {"call": "Location.update_many",
+                              "args": [[{"id": 7, "name": "loc-x"}, {"id": 999, "name": "loc-y"}]]},
+    "commondbtm-delete-one": {"args": [7]},
+    "commondbtm-delete-many": {"call": "Location.delete_many", "args": [[7, 8]]},
+    "commondbtm-delete-force-purge": {"args": [7]},
+    "commondbtm-delete-error-glpi-delete": {"args": [999], "known_bug": None,
+                                            "fixed": "single delete failure raises NotFoundError (D8)"},
+    "commondbtm-delete-400": {"args": [7]},
+    "commondbtm-get-all-items": {"call": "Location.get_all"},
+    "commondbtm-get-all-items-range-sort": {"call": "Location.get_all"},
+    "commondbtm-get-all-items-206": {"call": "Location.get_all"},
+    "commondbtm-get-all-items-searchtext": {"call": "Location.get_all"},
+    "commondbtm-list-search-options": {"call": "Computer.search_options", "args": [], "known_bug": None,
+                                       "requests_change": _D20, "fixed": _D20},
+    "commondbtm-field-id": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
+    "commondbtm-field-uid": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
+    "user-getbyusername-429": {"known_bug": None, "fixed": "mapped to RateLimitError"},
+    "group-deleteuser": {"known_bug": None, "requests_change": _D21, "fixed": _D21},
+    "ticket-approvalsolution": {"requests_change": _D22},
+}
+
+
+def normalized(scenario: dict[str, Any]) -> dict[str, Any]:
+    """Return a scenario with its normalized-contract overrides applied.
+
+    Args:
+        scenario: Scenario dict from ``SCENARIOS``.
+
+    Returns:
+        A new dict; ``known_bug`` is dropped when the override sets it to ``None``.
+    """
+    merged = {**scenario, **V2.get(scenario["id"], {})}
+    if merged.get("known_bug") is None:
+        merged.pop("known_bug", None)
+    return merged

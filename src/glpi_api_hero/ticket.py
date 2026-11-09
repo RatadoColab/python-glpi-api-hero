@@ -1,11 +1,12 @@
-from glpi_api_hero import CommonDBTM
-from glpi_api_hero import ITILFollowup
-from glpi_api_hero import ITILSolution
-from glpi_api_hero import TicketValidation
-from glpi_api_hero import Task
-from glpi_api_hero import Item
-from glpi_api_hero import Actor
-from glpi_api_hero import LinkedTicket
+from glpi_api_hero.actor import Actor
+from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.item import Item
+from glpi_api_hero.itilfollowup import ITILFollowup
+from glpi_api_hero.itilsolution import ITILSolution
+from glpi_api_hero.linked_ticket import LinkedTicket
+from glpi_api_hero.task import Task
+from glpi_api_hero.ticket_validation import TicketValidation
+
 
 class Ticket(CommonDBTM):
 
@@ -45,7 +46,7 @@ class Ticket(CommonDBTM):
         """
         data['id'] = followup_id
 
-        return ITILFollowup.update(data)
+        return ITILFollowup.update(followup_id, data)
 
     @classmethod
     def deleteFollowUp(cls, followup_id: int):
@@ -57,7 +58,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return ITILFollowup.delete({'id': followup_id})
+        return ITILFollowup.delete(followup_id)
 
     @classmethod
     def getFollowUps(cls, ticket_id: int):
@@ -118,7 +119,7 @@ class Ticket(CommonDBTM):
         """
         data['id'] = solution_id
 
-        return ITILSolution.update(data)
+        return ITILSolution.update(solution_id, data)
 
     @classmethod
     def deleteSolution(cls, solution_id: int):
@@ -130,7 +131,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return ITILSolution.delete({'id': solution_id})
+        return ITILSolution.delete(solution_id)
 
     @classmethod
     def getSolution(cls, ticket_id: int):
@@ -191,7 +192,7 @@ class Ticket(CommonDBTM):
         """
         data['id'] = validation_id
 
-        return TicketValidation.update(data)
+        return TicketValidation.update(validation_id, data)
 
     @classmethod
     def deleteValidation(cls, validation_id: int):
@@ -203,7 +204,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return TicketValidation.delete({'id': validation_id})
+        return TicketValidation.delete(validation_id)
 
     @classmethod
     def getValidations(cls, ticket_id: int, **kwargs):
@@ -257,7 +258,7 @@ class Ticket(CommonDBTM):
         """
         data['id'] = task_id
 
-        return Task.update(data)
+        return Task.update(task_id, data)
 
     @classmethod
     def deleteTask(cls, task_id: int):
@@ -269,7 +270,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return Task.delete({'id': task_id})
+        return Task.delete(task_id)
 
     @classmethod
     def getTasks(cls, ticket_id: int, **kwargs):
@@ -314,7 +315,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return Item.delete({'id': item_id})
+        return Item.delete(item_id)
 
     @classmethod
     def getItems(cls, ticket_id: int, **kwargs):
@@ -360,7 +361,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return Actor.delete({'id': actor_id})
+        return Actor.delete(actor_id)
 
     @classmethod
     def getActors(cls, ticket_id: int, **kwargs):
@@ -406,7 +407,7 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        return LinkedTicket.delete({'id': linked_ticket_id})
+        return LinkedTicket.delete(linked_ticket_id)
 
     @classmethod
     def getLinkedTickets(cls, ticket_id: int, **kwargs):
