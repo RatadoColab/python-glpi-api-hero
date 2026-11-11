@@ -10,6 +10,7 @@ import re
 import unicodedata
 import urllib.parse
 import uuid
+import warnings
 from collections.abc import Iterable, Sequence
 from email.message import Message
 from email.utils import decode_rfc2231
@@ -105,12 +106,22 @@ class LegacyRestConnector(Connector):
             raise ConfigurationError("a user token or a username and password are required")
         if username and password is None:
             raise ConfigurationError("a password is required with a username")
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+            parsed.port  # noqa: B018 - validates the port
+        except ValueError as exc:
+            raise ConfigurationError("the GLPI API URL is not valid") from exc
+        if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
+            raise ConfigurationError("the GLPI API URL must be an absolute http(s) URL")
         if parsed.username or parsed.password:
             # Credentials in the URL would reach logs and error messages
             raise ConfigurationError("the GLPI API URL must not contain credentials")
-        if parsed.scheme == "http":
+        if parsed.query or parsed.fragment:
+            raise ConfigurationError("the GLPI API URL must not contain a query or a fragment")
+        if parsed.scheme.lower() == "http":
             logger.warning("the GLPI API URL uses plain http: tokens and passwords travel unencrypted")
+            warnings.warn("the GLPI API URL uses plain http: tokens and passwords travel unencrypted",
+                          stacklevel=2)
         self.url = url.rstrip("/")
         self.timeout = timeout
         self._app_token = app_token
@@ -261,6 +272,14 @@ class LegacyRestConnector(Connector):
         except requests.exceptions.RequestException as exc:
             self._scrub_exception(exc)
             raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
+        except (ValueError, UnicodeError) as exc:
+            # A malformed redirect target or URL surfaces as a plain ValueError from requests
+            raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
+        if 300 <= response.status_code < 400:
+            response.close()
+            raise ConfigurationError(
+                f"GLPI answered with a redirect (HTTP {response.status_code}); redirects are not followed so that "
+                "tokens never reach another host: configure the final API URL (for example https instead of http)")
         logger.debug("%s %s -> %s", method, "/".join(str(p) for p in parts), response.status_code)
         if "Content-Range" in response.headers:
             logger.debug("Content-Range: %s", response.headers["Content-Range"])

@@ -18,6 +18,7 @@ import contextlib
 import logging
 from collections.abc import Iterator, Sequence
 from typing import Any
+from urllib.parse import urlsplit
 
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.legacy_rest import DEFAULT_TIMEOUT, LegacyRestConnector
@@ -69,7 +70,7 @@ class Glpi:
         if not username and not user_token:
             raise ConfigurationError("a user token or a username and password are required")
         if verify_tls is False:
-            logger.warning("TLS certificate verification is disabled for %s", url)
+            logger.warning("TLS certificate verification is disabled for %s", urlsplit(url).hostname or "the GLPI host")
         # The connector validates its parameters before anything else is touched
         connector = connector_class(url, app_token, user_token=user_token, username=username, password=password,
                                     verify=verify_tls, timeout=timeout)
