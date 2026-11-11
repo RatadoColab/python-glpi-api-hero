@@ -812,7 +812,8 @@ class LegacyRestConnector(Connector):
             # Only a plain file name is used, so a stored name cannot escape the directory
             target = directory / _safe_filename(name, f"document-{documents_id}")
             # Last guard: the final path must sit directly inside the destination directory
-            if target.resolve().parent != directory.resolve():
+            # Only the parent is resolved: the final component is never followed by replace()/link()
+            if target.parent.resolve() != directory.resolve():
                 raise ValueError(f"download target outside {directory}: {target.name!r}")
             if not overwrite and (target.exists() or target.is_symlink()):
                 raise FileExistsError(f"file already exists: {target}")

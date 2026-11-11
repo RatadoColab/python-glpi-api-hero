@@ -327,7 +327,8 @@
    "contract",
    "certificate",
    "ticket",
-   "notes"
+   "notes",
+   "document"
   ],
   "Appliance": [
    "infocom",
