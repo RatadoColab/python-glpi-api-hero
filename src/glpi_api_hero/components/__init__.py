@@ -1,3 +1,5 @@
 """Models of the Components menu."""
 
-__all__: list[str] = []
+from glpi_api_hero.components.device_simcard import DeviceSimcard
+
+__all__ = ["DeviceSimcard"]

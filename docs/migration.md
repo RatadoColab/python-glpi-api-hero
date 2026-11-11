@@ -101,7 +101,8 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `ApiOperationError` | `glpi_api_hero.exceptions:GlpiAPIError (and its subclasses)` |
 | `ApiRateLimitError` | `glpi_api_hero.exceptions:RateLimitError` |
 | `Actor, Item, Task, LinkedTicket, ITILFollowup, ITILSolution, TicketValidation` | removed (sub-items are methods of `Ticket`, `Change` and `Problem`; any other sub-item is reachable with `GenericItem.of("<itemtype>")`) |
-| `Cluster, NetworkEquipment (stubs)` | removed (typed replacements in phases 06 and 07; meanwhile `GenericItem.of("Cluster")`) |
+| `NetworkEquipment (stub)` | `glpi_api_hero.assets:NetworkEquipment` (typed model) |
+| `Cluster (stub)` | removed (typed replacement in phase 07; meanwhile `GenericItem.of("Cluster")`) |
 | `TicketDashboard` | removed from the package (now an example: `examples/ticket_dashboard/ticket_dashboard.py`) |
 
 ## Behavior changes already in effect
@@ -128,3 +129,16 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
 - Input dicts are never modified.
 - `ActorKind` (`user`, `group`, `supplier`) and `LinkType` (`LINKED`, `DUPLICATE`, `CHILD`, `PARENT`) live in
   `glpi_api_hero.core.constants`, next to `ActorType`.
+
+## Assets
+
+`glpi_api_hero.assets` has a model for every itemtype of the Assets menu (`Computer`, `Monitor`, `Software`,
+`NetworkEquipment`, `Peripheral`, `Printer`, `CartridgeItem`, `ConsumableItem`, `Phone`, `Rack`, `Enclosure`, `PDU`,
+`PassiveDCEquipment`, `Unmanaged`, `Cable`) and `glpi_api_hero.components` has `DeviceSimcard`.
+
+- Sub-item readers come from capability mixins (`glpi_api_hero.core.capabilities`) and exist only on the itemtypes
+  GLPI allows: `Cable` has `get_infocom` but no `get_network_ports`.
+- `get_tickets` of an asset now returns the `Item_Ticket` link rows of the item (the 0.1 search used a field that
+  cannot be searched by item id).
+- `get_devices(id, "Item_DeviceProcessor")` reads one kind of component; without a kind it reads every kind the
+  itemtype can own.

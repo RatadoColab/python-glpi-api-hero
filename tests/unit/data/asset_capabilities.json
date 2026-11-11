@@ -1,0 +1,351 @@
+{
+ "capabilities": {
+  "infocom": {
+   "source": "$CFG_GLPI['infocom_types']",
+   "methods": [
+    "get_infocom"
+   ]
+  },
+  "networkport": {
+   "source": "$CFG_GLPI['networkport_types']",
+   "methods": [
+    "get_network_ports"
+   ]
+  },
+  "contract": {
+   "source": "$CFG_GLPI['contract_types']",
+   "methods": [
+    "get_contracts"
+   ]
+  },
+  "document": {
+   "source": "$CFG_GLPI['document_types']",
+   "methods": [
+    "get_documents"
+   ]
+  },
+  "certificate": {
+   "source": "$CFG_GLPI['certificate_types']",
+   "methods": [
+    "get_certificates"
+   ]
+  },
+  "domain": {
+   "source": "$CFG_GLPI['domain_types']",
+   "methods": [
+    "get_domains"
+   ]
+  },
+  "appliance": {
+   "source": "$CFG_GLPI['appliance_types']",
+   "methods": [
+    "get_appliances"
+   ]
+  },
+  "cluster": {
+   "source": "$CFG_GLPI['cluster_types']",
+   "methods": [
+    "get_clusters"
+   ]
+  },
+  "software": {
+   "source": "$CFG_GLPI['software_types']",
+   "methods": [
+    "get_software_versions",
+    "get_software_licenses"
+   ]
+  },
+  "operatingsystem": {
+   "source": "$CFG_GLPI['operatingsystem_types']",
+   "methods": [
+    "get_operating_systems"
+   ]
+  },
+  "disk": {
+   "source": "$CFG_GLPI['disk_types']",
+   "methods": [
+    "get_disks"
+   ]
+  },
+  "itemdevices": {
+   "source": "$CFG_GLPI['itemdevices_types']",
+   "methods": [
+    "get_devices"
+   ]
+  },
+  "simcard": {
+   "source": "$CFG_GLPI['itemdevicesimcard_types']",
+   "methods": [
+    "get_sim_cards"
+   ]
+  },
+  "rackable": {
+   "source": "$CFG_GLPI['rackable_types']",
+   "methods": [
+    "get_racks"
+   ]
+  },
+  "remote_management": {
+   "source": "$CFG_GLPI['remote_management_types']",
+   "methods": [
+    "get_remote_managements"
+   ]
+  },
+  "reservation": {
+   "source": "$CFG_GLPI['reservation_types']",
+   "methods": [
+    "get_reservation_items"
+   ]
+  },
+  "ticket": {
+   "source": "$CFG_GLPI['ticket_types']",
+   "methods": [
+    "get_tickets"
+   ]
+  }
+ },
+ "matrix": {
+  "Computer": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "cluster",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "remote_management",
+   "reservation",
+   "ticket"
+  ],
+  "Monitor": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "rackable",
+   "reservation",
+   "ticket"
+  ],
+  "Software": [
+   "infocom",
+   "contract",
+   "document",
+   "domain",
+   "appliance",
+   "reservation",
+   "ticket"
+  ],
+  "NetworkEquipment": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "cluster",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "reservation",
+   "ticket"
+  ],
+  "Peripheral": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "reservation",
+   "ticket"
+  ],
+  "Printer": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "reservation",
+   "ticket"
+  ],
+  "CartridgeItem": [
+   "infocom",
+   "document"
+  ],
+  "ConsumableItem": [
+   "infocom",
+   "document"
+  ],
+  "Phone": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "remote_management",
+   "reservation",
+   "ticket"
+  ],
+  "Rack": [
+   "infocom",
+   "contract",
+   "document",
+   "ticket"
+  ],
+  "Enclosure": [
+   "infocom",
+   "networkport",
+   "contract",
+   "itemdevices",
+   "rackable",
+   "ticket"
+  ],
+  "PDU": [
+   "infocom",
+   "networkport",
+   "contract",
+   "rackable",
+   "ticket"
+  ],
+  "PassiveDCEquipment": [
+   "infocom",
+   "contract",
+   "rackable",
+   "ticket"
+  ],
+  "Unmanaged": [
+   "networkport",
+   "domain"
+  ],
+  "Cable": [
+   "infocom",
+   "ticket"
+  ]
+ },
+ "device_types": {
+  "Item_DeviceMotherboard": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceFirmware": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DeviceProcessor": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceMemory": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Printer",
+   "Phone"
+  ],
+  "Item_DeviceHardDrive": [
+   "Computer",
+   "Peripheral",
+   "NetworkEquipment",
+   "Printer",
+   "Phone"
+  ],
+  "Item_DeviceNetworkCard": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Phone",
+   "Printer"
+  ],
+  "Item_DeviceDrive": [
+   "Computer",
+   "Peripheral"
+  ],
+  "Item_DeviceBattery": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "Printer"
+  ],
+  "Item_DeviceGraphicCard": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceSoundCard": [
+   "Computer"
+  ],
+  "Item_DeviceControl": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DevicePci": [
+   "*"
+  ],
+  "Item_DevicePowerSupply": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Enclosure",
+   "Phone"
+  ],
+  "Item_DeviceGeneric": [
+   "*"
+  ],
+  "Item_DeviceSimcard": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DeviceSensor": [
+   "Computer",
+   "Peripheral",
+   "Phone"
+  ],
+  "Item_DeviceCamera": [
+   "Computer",
+   "Phone"
+  ]
+ }
+}
