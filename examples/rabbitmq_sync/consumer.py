@@ -77,7 +77,7 @@ def _connect_glpi() -> None:
 
     Sets the connection parameters (URL, app token, user and password), starts
     the session and selects the profile and entity given in the environment variables.
-    Deve ser chamada uma vez antes de iniciar o consumo da fila.
+    Must be called once before the queue consumption starts.
     """
     Glpi.connect(GLPI_URL, GLPI_APPTOKEN, username=GLPI_USER, password=GLPI_PASSWD)
     Glpi.set_profile_entity(GLPI_PROFILES_ID, GLPI_ENTITIES_ID, is_recursive=True)
@@ -87,12 +87,12 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
     """Declare the exchanges, queues and bindings of the message flow.
 
     Three layers are created:
-    - DLX/DLQ: recebe mensagens com erro permanente (nack sem requeue).
-    - Fila principal (QUEUE): fila de trabalho, com DLX configurado para desvio em caso de falha.
-    - Fila de retry (RETRY_QUEUE): recebe mensagens com rate-limit; o TTL definido por
+    - DLX/DLQ: receives messages with a permanent error (nack without requeue).
+    - Main queue (QUEUE): work queue, with the DLX configured to divert failures.
+    - Retry queue (RETRY_QUEUE): receives rate-limited messages; the TTL set by
       GLPI_RETRY_DELAY_MS makes RabbitMQ return them to the main queue automatically.
     """
-    # DLQ — mensagens com erro permanente
+    # DLQ: messages with a permanent error
     channel.exchange_declare(exchange=DLX, exchange_type='fanout', durable=True)
     channel.queue_declare(queue=DLQ, durable=True)
     channel.queue_bind(queue=DLQ, exchange=DLX)
@@ -137,11 +137,11 @@ def _on_message(
     _properties: pika.spec.BasicProperties,
     body: bytes,
 ) -> None:
-    """Callback invocado pelo Pika para cada mensagem recebida da fila principal.
+    """Pika callback invoked for each message received from the main queue.
 
-    Fluxo de tratamento de erros:
+    Error handling flow:
     - Invalid JSON        -> nack without requeue (goes straight to the DLQ).
-    - RateLimitError   → republica na RETRY_QUEUE com TTL e faz ack da mensagem original.
+    - RateLimitError      -> republish to the RETRY_QUEUE with TTL and ack the original message.
     - GlpiConnectionError -> nack with requeue and stop the consumer (an external restart is expected).
     - Any other error     -> nack without requeue (permanent error, goes to the DLQ).
     """
@@ -160,7 +160,7 @@ def _on_message(
         time.sleep(GLPI_REQUEST_DELAY)
 
     except RateLimitError as exc:
-        # Rate limit atingido: republica na fila de retry e aguarda o TTL expirar.
+        # Rate limit reached: republish to the retry queue and wait for the TTL to expire.
         # RabbitMQ returns the message to the main queue automatically after GLPI_RETRY_DELAY_MS.
         delay_s = GLPI_RETRY_DELAY_MS // 1000
         print(f"[RATE LIMIT] {label} - back in the queue in {delay_s}s: {exc}")
@@ -186,9 +186,9 @@ def _on_message(
 
 
 def consume() -> None:
-    """Inicia o loop de consumo: conecta ao GLPI, ao RabbitMQ e processa mensagens indefinidamente.
+    """Start the consume loop: connect to GLPI and RabbitMQ and process messages indefinitely.
 
-    Configura prefetch_count=1 para garantir processamento um a um (sem sobrecarga do GLPI).
+    Sets prefetch_count=1 so messages are processed one at a time (no overload of GLPI).
     On exit (CTRL+C or an internal stop_consuming), closes the RabbitMQ connection and
     ends the GLPI session. Connection errors while ending the GLPI session are ignored,
     because the process is shutting down anyway.
@@ -203,7 +203,7 @@ def consume() -> None:
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE, on_message_callback=_on_message)
 
-    print(f"Aguardando mensagens na fila '{QUEUE}'. CTRL+C para sair.\n")
+    print(f"Waiting for messages on queue '{QUEUE}'. Press CTRL+C to exit.\n")
     try:
         channel.start_consuming()
     except KeyboardInterrupt:

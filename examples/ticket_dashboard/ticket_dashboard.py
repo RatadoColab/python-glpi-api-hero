@@ -13,25 +13,25 @@ class TicketDashboard(CommonDBTM):
     - Donut chart with the percentage distribution by category
     - Detailed table by category
 
-    Exemplo:
+    Example:
 
         from glpi_api_hero import Glpi
         from examples.ticket_dashboard.ticket_dashboard import TicketDashboard
 
         Glpi.connect(url, apptoken, user_token=token)
 
-        caminho = TicketDashboard.generate(
+        path = TicketDashboard.generate(
             date_from="2024-04-24",
             date_to="2024-05-14",
-            categories={"Infraestrutura": 3, "Sistemas": 5, "Suporte": 7},
+            categories={"Infrastructure": 3, "Systems": 5, "Support": 7},
             output_path="dashboard_dti.html",
             titulo="DTI",
         )
-        print(f"Dashboard gerado em: {caminho}")
+        print(f"Dashboard written to: {path}")
 
-    Nota sobre SLA:
-        Os campos de SLA usam ``FIELD_PRAZO = 18`` (time_to_resolve).
-        Sobrescreva este atributo de classe se seu GLPI usar um field_id diferente.
+    SLA note:
+        The SLA fields use ``FIELD_PRAZO = 18`` (time_to_resolve).
+        Override this class attribute if your GLPI uses a different field id.
     """
 
     _glpi_name = "Ticket"
@@ -66,7 +66,7 @@ class TicketDashboard(CommonDBTM):
     ]
 
     # ------------------------------------------------------------------
-    # Helpers de consulta GLPI
+    # GLPI query helpers
     # ------------------------------------------------------------------
 
     @classmethod
@@ -93,7 +93,7 @@ class TicketDashboard(CommonDBTM):
         """Base criteria for the SLA: no filter on the opening date.
 
         SLA overdue/today considers every ticket, regardless of when
-        foram criados.
+        were created.
         """
         if cat_id is not None:
             return [{"field": cls.FIELD_CATEGORIA, "searchtype": "equals", "value": cat_id}]
@@ -127,9 +127,9 @@ class TicketDashboard(CommonDBTM):
     def diagnose(cls, date_from: str, date_to: str, cat_id: int = None) -> None:
         """Print the URLs and totals of each query for debugging.
 
-        Util para verificar se os field IDs e criterios estao corretos.
+        Useful to check that the field ids and criteria are correct.
 
-        Exemplo::
+        Example::
 
             TicketDashboard.diagnose("2024-04-24", "2024-05-14")
             TicketDashboard.diagnose("2024-04-24", "2024-05-14", cat_id=3)
@@ -192,11 +192,11 @@ class TicketDashboard(CommonDBTM):
         """Collect ticket metrics from GLPI for the given period.
 
         Args:
-            date_from:  Data inicial no formato YYYY-MM-DD (inclusive).
+            date_from:  Start date as YYYY-MM-DD (inclusive).
             date_to:    End date as YYYY-MM-DD (exclusive: tickets of the last day are not counted).
-            categories: Mapeamento {nome_exibicao: glpi_itilcategory_id}.
-                        Ex.: {"Infraestrutura": 3, "Sistemas": 5}.
-            If None, only the global totals are returned.
+            categories: Mapping {display_name: glpi_itilcategory_id}.
+                        E.g. {"Infrastructure": 3, "Systems": 5}.
+                        If None, only the global totals are returned.
 
         Returns:
             dict with keys: total, fechados, solucionados, abertos,
@@ -228,21 +228,21 @@ class TicketDashboard(CommonDBTM):
         """Generate the ticket dashboard as HTML or image.
 
         Args:
-            date_from:   Data inicial YYYY-MM-DD.
-            date_to:     Data final YYYY-MM-DD.
-            categories:  Mapeamento {nome_categoria: glpi_itilcategory_id}.
-            output_path: Caminho de saida — ``.html`` (interativo) ou
-                         ``.png``/``.svg``/``.pdf`` (estatico, requer a biblioteca kaleido).
-            titulo:      Titulo central exibido no cabecalho do dashboard.
-            data:        Dados pre-coletados (saida de :meth:`collect_data`).
-                         Se None, chama ``collect_data()`` automaticamente.
+            date_from:   Start date YYYY-MM-DD.
+            date_to:     End date YYYY-MM-DD.
+            categories:  Mapping {category_name: glpi_itilcategory_id}.
+            output_path: Output path: ``.html`` (interactive) or
+                         ``.png``/``.svg``/``.pdf`` (static, needs the kaleido library).
+            titulo:      Central title shown in the dashboard header.
+            data:        Pre-collected data (output of :meth:`collect_data`).
+                         If None, ``collect_data()`` is called automatically.
 
         Returns:
-            Caminho absoluto do arquivo gerado.
+            Absolute path of the generated file.
 
         Raises:
-            ImportError: Se plotly nao estiver instalado.
-            ImportError: Se kaleido nao estiver instalado ao exportar imagem.
+            ImportError: If plotly is not installed.
+            ImportError: If kaleido is not installed when exporting an image.
         """
         try:
             import plotly.graph_objects as go
@@ -306,9 +306,9 @@ class TicketDashboard(CommonDBTM):
         )
 
         # Tabela detalhada (direita, inferior)
-        n_rows   = len(nomes) + 1  # +1 para linha de totais
+        n_rows   = len(nomes) + 1  # +1 for the totals row
         alt_fill = ["#f5f5f5" if i % 2 == 0 else "#ffffff" for i in range(n_rows - 1)]
-        alt_fill += ["#dce8f5"]  # destaque na linha de totais
+        alt_fill += ["#dce8f5"]  # highlight of the totals row
 
         col_totals = {
             k: sum(categorias[c][k] for c in nomes)
@@ -355,7 +355,7 @@ class TicketDashboard(CommonDBTM):
 
         shapes, annotations = [], []
 
-        # Fundo do cabecalho
+        # Header background
         shapes.append(dict(
             type="rect",
             xref="paper", yref="paper",
@@ -411,10 +411,10 @@ class TicketDashboard(CommonDBTM):
                 ),
             ]
 
-        # Centro vertical da caixa do cabecalho: (0.94 + 1.01) / 2
+        # Vertical center of the header box: (0.94 + 1.01) / 2
         _header_cy = (0.94 + 1.01) / 2
 
-        # Titulo centralizado dentro da caixa azul
+        # Title centered inside the blue box
         annotations.append(dict(
             text=f"<b>{titulo}</b>",
             xref="paper", yref="paper",
@@ -441,9 +441,9 @@ class TicketDashboard(CommonDBTM):
         # Legendas manuais (shapes + annotations na margem inferior)
         # ----------------------------------------------------------------
 
-        leg_y   = -0.055   # centro vertical das legendas (abaixo de y=0)
-        sq_h    = 0.030    # altura do quadrado de cor em coords de papel
-        sq_w    = 0.018    # largura do quadrado
+        leg_y   = -0.055   # vertical center of the legends (below y=0)
+        sq_h    = 0.030    # height of the color square in paper coords
+        sq_w    = 0.018    # width of the square
         gap_txt = 0.006    # space between square and text
 
         # Status legend (bar chart): left side [0.0, 0.50]
@@ -473,7 +473,7 @@ class TicketDashboard(CommonDBTM):
                 xanchor="left", yanchor="middle",
             ))
 
-        # Legenda de categorias (donut) — lado direito [0.54, 0.98]
+        # Category legend (donut), right side [0.54, 0.98]
         n_cat      = len(nomes)
         item_w_cat = (0.98 - 0.54) / max(n_cat, 1)
         for i, nome in enumerate(nomes):
@@ -527,7 +527,7 @@ class TicketDashboard(CommonDBTM):
                 asyncio.run(kaleido.write_fig(fig, abs_path))
             except ImportError:
                 raise ImportError(
-                    f"kaleido e necessario para exportar {ext}. "
+                    f"kaleido is required to export {ext}. "
                     "Instale com: pip install kaleido"
                 )
 

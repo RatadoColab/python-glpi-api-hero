@@ -109,6 +109,9 @@ class Glpi:
             The ``Glpi`` class.
 
         Raises:
+            ConfigurationError: When the connection parameters are invalid.
+            AuthenticationError: When GLPI refuses the credentials.
+            GlpiConnectionError: When the server cannot be reached.
             BaseException: Whatever the block raises, after the session is closed.
         """
         cls.connect(url, app_token, **kwargs)
