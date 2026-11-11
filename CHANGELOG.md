@@ -5,7 +5,7 @@
 ### New
 - The library now talks to GLPI 10 on its own, without the external `glpi-api` package. The transport sits behind a
   connector contract, so support for the GLPI 12 API can be added later without changing the models.
-- Session handling in one place: connect once with `Glpi.connect(...)` or use the `Glpi.session(...)` block, which
+- Session handling in one place: connect once or use a session block, which
   closes the session by itself. The active profile and entity can be changed at any time.
 - Models for the item types of the GLPI 10 menus, organized by menu: assets (computers, monitors, software, network
   equipment, printers, phones, racks, cables and more), assistance (tickets, changes, problems and recurring items),
@@ -18,9 +18,9 @@
 - Each model offers only the readers that GLPI supports for that item type, such as documents, notes, costs,
   network ports and tickets.
 - Documents can be uploaded and downloaded safely, and the download never overwrites a file unless asked to.
-- Any item type without a dedicated model can be used through `GenericItem.of("<itemtype>")`.
-- Complete create, read, update, delete and search operations in every model, with bulk versions (`add_many`,
-  `update_many`, `delete_many`), plus listing of search options.
+- Any item type without a dedicated model can be used through the generic item factory.
+- Complete create, read, update, delete and search operations in every model, with bulk versions of creation, update
+  and deletion, plus listing of search options.
 - Clear error types: not found, permission, rate limit, connection, partial operation and others, all derived from
   one base error. A bulk operation that only partly succeeds reports the result of each item.
 - Type hints on the whole public API, so editors can autocomplete methods and arguments.
@@ -35,8 +35,8 @@
 - Documentation, examples and code comments in English.
 
 ### Changed
-- The package is now installed as `glpi-api-hero`; the import name is still `glpi_api_hero`.
-- Models are imported from the menu they belong to (for example `glpi_api_hero.assets`), and the top-level package
+- The package is now installed as glpi-api-hero; the name used in imports stays glpi_api_hero.
+- Models are imported from the menu they belong to (for example the assets package), and the top-level package
   keeps only the session, the generic models, the exceptions and the version. Importing the library no longer has
   side effects.
 - All public methods now use `snake_case` names and are called on the class, without creating objects.
@@ -62,3 +62,9 @@
 - Computer disks, the users of a location and the lookups by name and complete name use
   the correct GLPI fields.
 - Methods that received a dictionary no longer change it.
+- Texts with special characters (such as &) are returned as typed instead of HTML-encoded.
+- Lookups by login, e-mail and group name now find the record by its exact text.
+- Reading a page beyond the last result returns an empty list instead of an error.
+- The bulk update of locations now updates a record that appears twice in the same list.
+- Closing a session block that ended well no longer raises when the logout fails, so its result is kept.
+- An invalid ticket role now raises an error instead of silently searching another role.

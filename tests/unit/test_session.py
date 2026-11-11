@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from glpi_api_hero import Glpi
-from glpi_api_hero.exceptions import AuthenticationError, ConfigurationError, NotFoundError, ServerError
+from glpi_api_hero.exceptions import AuthenticationError, ConfigurationError, NotFoundError
 from tests.conftest import APP_TOKEN, BASE_URL, SESSION_TOKEN, USER_TOKEN, GlpiMock
 
 
@@ -264,8 +264,10 @@ def test_block_error_wins_over_logout_error(glpi_mock: GlpiMock) -> None:
     with pytest.raises(KeyError), Glpi.session(BASE_URL, APP_TOKEN, user_token=USER_TOKEN):
         raise KeyError("original")
     assert not Glpi.is_connected()
-    with pytest.raises(ServerError), Glpi.session(BASE_URL, APP_TOKEN, user_token=USER_TOKEN):
+    # After a successful block a logout failure is logged, not raised, so the block result is never lost
+    with Glpi.session(BASE_URL, APP_TOKEN, user_token=USER_TOKEN):
         pass
+    assert not Glpi.is_connected()
 
 
 def test_failed_login_releases_the_connector(glpi_mock: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:

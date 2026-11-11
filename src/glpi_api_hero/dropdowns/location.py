@@ -244,7 +244,14 @@ class Location(CommonTreeDropdown):
                 results.append(cls.update(existing["id"], mapped))
             else:
                 try:
-                    results.append(cls.add({"locations_id": locations_id, "entities_id": entities_id, **mapped}))
+                    new_id = cls.add({"locations_id": locations_id, "entities_id": entities_id, **mapped})
+                    results.append(new_id)
+                    # Index the new location so a repeated record in the same batch updates it
+                    created = {**mapped, "id": new_id}
+                    if key:
+                        by_key[str(key)] = created
+                    if name:
+                        by_name[name] = created
                 except GlpiAPIError as exc:
                     if "Duplicate entry" in str(exc):
                         logger.warning(

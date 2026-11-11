@@ -162,7 +162,7 @@ def test_unknown_uid_raises_bad_request(session: GlpiMock) -> None:
 
 
 def test_quotes_escaped_and_inputs_not_mutated(session: GlpiMock) -> None:
-    """Single quotes are doubled in values; criteria lists are not modified.
+    """Single quotes are sent as typed (GLPI 10); criteria lists are not modified.
 
     Args:
         session: Simulator with an open session.
@@ -172,7 +172,7 @@ def test_quotes_escaped_and_inputs_not_mutated(session: GlpiMock) -> None:
     snapshot = (repr(criteria), repr(meta))
     _connector().search("User", criteria, metacriteria=meta)
     query = session.captured()[0]["query"]
-    assert query["criteria[0][value]"] == "o''neil"
+    assert query["criteria[0][value]"] == "o'neil"
     assert query["criteria[1][meta]"] == "True"
     assert (repr(criteria), repr(meta)) == snapshot
 

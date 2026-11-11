@@ -8,7 +8,7 @@ All library errors derive from `GlpiError` (`glpi_api_hero.exceptions`).
 | `GlpiConnectionError` | The server could not be reached (network, TLS, timeout) |
 | `GlpiAPIError` | GLPI answered with an HTTP error (`status_code`, `error_code`, `message`) |
 | `AuthenticationError` | Invalid tokens or credentials |
-| `PermissionDeniedError` | The active profile has no right on the operation |
+| `PermissionDeniedError` | The active profile cannot read the item or the operation (a refused write may surface as `BadRequestError` with `ERROR_GLPI_ADD`, `ERROR_GLPI_UPDATE` or `ERROR_GLPI_DELETE`) |
 | `NotFoundError` | The item does not exist |
 | `BadRequestError` | GLPI refused the data |
 | `RateLimitError` | The server asked the client to slow down (HTTP 429) |

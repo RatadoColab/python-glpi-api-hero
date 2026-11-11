@@ -269,6 +269,9 @@ class LegacyRestConnector(Connector):
             response = self._http.request(method, url, params=params, json=body, headers=headers, files=files,
                                           data=data, timeout=self.timeout, verify=self._verify, stream=stream,
                                           allow_redirects=False)
+        except requests.exceptions.InvalidJSONError as exc:
+            # The payload could not be encoded (for example NaN): a caller error, not a network failure
+            raise ValueError(f"the request payload is not valid JSON: {exc}") from None
         except requests.exceptions.RequestException as exc:
             self._scrub_exception(exc)
             raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
@@ -415,7 +418,9 @@ class LegacyRestConnector(Connector):
             raise GlpiAPIError("unexpected initSession answer: no session_token", status_code=200)
         self._session_token = body["session_token"]
         # Headers sent by every later request
-        session_headers = {"Content-Type": "application/json", "Session-Token": self._session_token}
+        # Raw text is requested: by default GLPI 10 answers with HTML entities (``&`` as ``&#38;``)
+        session_headers = {"Content-Type": "application/json", "Session-Token": self._session_token,
+                           "X-GLPI-Sanitized-Content": "false"}
         if self._app_token:
             session_headers["App-Token"] = self._app_token
         self._http.headers.update(session_headers)
@@ -515,6 +520,24 @@ class LegacyRestConnector(Connector):
         """
         return self._call("GET", [itemtype, items_id], params=_convert_bools(params))
 
+    def _call_ranged(self, method: str, parts: Iterable[Any], **kwargs: Any) -> Any:
+        """Run a paginated read; a ``range`` beyond the total yields an empty result.
+
+        Args:
+            method: HTTP method.
+            parts: Endpoint path segments.
+            **kwargs: Arguments of :meth:`_call`.
+
+        Returns:
+            The decoded body, or ``None`` when the range starts after the last row.
+        """
+        try:
+            return self._call(method, parts, ok=(200, 206), **kwargs)
+        except BadRequestError as exc:
+            if exc.error_code == "ERROR_RANGE_EXCEED_TOTAL":
+                return None
+            raise
+
     def get_all_items(self, itemtype: str, **params: Any) -> list[dict[str, Any]]:
         """Return the items of an itemtype.
 
@@ -525,7 +548,7 @@ class LegacyRestConnector(Connector):
         Returns:
             The items (empty list when there is none).
         """
-        body = self._call("GET", [itemtype], ok=(200, 206), params=_convert_bools(_expand_search_text(params)))
+        body = self._call_ranged("GET", [itemtype], params=_convert_bools(_expand_search_text(params)))
         return body if isinstance(body, list) else []
 
     def get_sub_items(self, itemtype: str, items_id: int, sub_itemtype: str, **params: Any) -> list[dict[str, Any]]:
@@ -540,7 +563,7 @@ class LegacyRestConnector(Connector):
         Returns:
             The sub-items (empty list when there is none).
         """
-        body = self._call("GET", [itemtype, items_id, sub_itemtype], ok=(200, 206), params=_convert_bools(params))
+        body = self._call_ranged("GET", [itemtype, items_id, sub_itemtype], params=_convert_bools(params))
         return body if isinstance(body, list) else []
 
     def get_multiple_items(self, refs: Sequence[tuple[str, int]], **params: Any) -> list[dict[str, Any]]:
@@ -600,9 +623,6 @@ class LegacyRestConnector(Connector):
                     continue
                 if name == "field":
                     value = self.field_id(field_itemtype, value)
-                elif isinstance(value, str):
-                    # Single quotes are doubled, as the legacy search engine expects
-                    value = value.replace("'", "''")
                 params[f"{key}[{name}]"] = value
         return params
 
@@ -650,7 +670,7 @@ class LegacyRestConnector(Connector):
             The decoded body.
         """
         query = self._search_params(itemtype, criteria, forcedisplay, metacriteria, params)
-        body = self._call("GET", ["search", itemtype], ok=(200, 206), params=query)
+        body = self._call_ranged("GET", ["search", itemtype], params=query)
         return body if isinstance(body, dict) else {}
 
     def search(self, itemtype: str, criteria: Sequence[dict[str, Any]] | None = None, *,

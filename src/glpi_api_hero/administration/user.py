@@ -67,8 +67,13 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
 
         Returns:
             Search rows of the tickets.
+
+        Raises:
+            ValueError: When ``actor_type`` is not an ``ActorType``.
         """
-        # Delegate to the actor search of the ITIL base; unknown roles keep the requester search
+        # Delegate to the actor search of the ITIL base; unknown roles are refused
+        if actor_type not in tuple(ActorType):
+            raise ValueError(f"{actor_type!r} is not a valid ActorType")
         if actor_type == ActorType.ASSIGNED:
             return Ticket.get_by_assigned(user_id, **kwargs)
         if actor_type == ActorType.OBSERVER:
@@ -88,9 +93,10 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
         """
         criteria = [
             {
-                "field": cls.SEARCH_FIELD_LOGIN,  # campo "Login"
-                "searchtype": "equals",
-                "value": username,
+                # Login field; "equals" compares the item id on link fields, so the anchored text match is used
+                "field": cls.SEARCH_FIELD_LOGIN,
+                "searchtype": "contains",
+                "value": f"^{username}$",
             }
         ]
         return cls.search(criteria, **kwargs)
@@ -108,9 +114,10 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
         """
         criteria = [
             {
-                "field": cls.SEARCH_FIELD_EMAIL,  # campo "Email"
-                "searchtype": "equals",
-                "value": email,
+                # E-mail field; anchored text match for an exact lookup
+                "field": cls.SEARCH_FIELD_EMAIL,
+                "searchtype": "contains",
+                "value": f"^{email}$",
             }
         ]
         return cls.search(criteria, **kwargs)
