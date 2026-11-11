@@ -11,7 +11,7 @@ import tempfile
 from collections.abc import Iterable, Sequence
 from email.message import Message
 from email.utils import decode_rfc2231
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 from urllib.parse import unquote
 
@@ -791,6 +791,9 @@ class LegacyRestConnector(Connector):
             name = filename or _disposition_filename(response.headers.get("Content-Disposition"))
             # Only a plain file name is used, so a stored name cannot escape the directory
             target = directory / _safe_filename(name, f"document-{documents_id}")
+            # Last guard: the final path must sit directly inside the destination directory
+            if target.resolve().parent != directory.resolve():
+                target = directory / f"document-{documents_id}"
             # The file is written aside and renamed at the end: a failed transfer never leaves a partial file
             handle_fd, temp_path = tempfile.mkstemp(dir=directory, prefix=".glpi-download-")
             with os.fdopen(handle_fd, "wb") as handle:
@@ -965,4 +968,6 @@ def _safe_filename(name: str | None, default: str) -> str:
     """
     # Both separators are cut, whatever the server platform
     base = (name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
-    return default if base in ("", ".", "..") else base
+    # Drive prefixes such as "C:" are dropped (they escape the directory on Windows)
+    base = PureWindowsPath(base).name
+    return default if base in ("", ".", "..") or "\x00" in base else base
