@@ -159,6 +159,9 @@ class CommonITILObject(CommonDBTM):
     def search_followups(cls, criteria: list[dict[str, Any]] | None = None, **params: Any) -> list[dict[str, Any]]:
         """Search follow-ups of any parent with the GLPI search engine.
 
+        The search is not restricted to the parent itemtype: filter on the ``itemtype`` column
+        (search option 6) when only the follow-ups of this kind are wanted.
+
         Args:
             criteria: Search criteria (``[{"field": 1, "searchtype": "contains", "value": "x"}]``).
             **params: Extra API parameters (``range``, ``sort``...).
@@ -216,18 +219,21 @@ class CommonITILObject(CommonDBTM):
 
     @classmethod
     def approve_solution(cls, itil_id: int, comment: str = "") -> int:
-        """Approve the solution: GLPI closes the parent when a follow-up carries ``add_close``.
+        """Approve the solution by adding a follow-up that carries ``add_close``.
+
+        GLPI closes the parent only when it is solved (``ParentStatus``); on any other status the
+        follow-up is recorded and the status is not changed. The status is not checked here.
 
         Args:
             itil_id: Parent id.
-            comment: Optional text; GLPI writes "Solution approved" when empty.
+            comment: Optional text; GLPI writes "Solution approved" when empty or blank.
 
         Returns:
             The id of the follow-up that records the approval.
         """
         data: dict[str, Any] = {"add_close": 1}
         # An empty comment is not sent: GLPI fills in its own text
-        if comment:
+        if comment and comment.strip():
             data["content"] = comment
         return cls._child("ITILFollowup").add(cls._polymorphic(itil_id, data))
 
@@ -577,7 +583,8 @@ class CommonITILObject(CommonDBTM):
         """Return the links to another ITIL kind.
 
         ``Ticket_Ticket`` has no ``tickets_id`` column, so GLPI does not filter its sub-item
-        listing by parent: it is read with a text search per column and filtered here.
+        listing by parent: it is read with an anchored text search per column (``^id$``) and
+        checked again here. ``searchText`` cannot be overridden through ``params``.
 
         Args:
             itil_id: Parent id.
@@ -593,8 +600,9 @@ class CommonITILObject(CommonDBTM):
         model = cls._child(link_itemtype)
         found: dict[int, dict[str, Any]] = {}
         for column in (own_column, other_column):
-            # The text search matches substrings (id 1 also finds 10): the exact test follows
-            for row in model.get_all(**{"searchText": {column: str(itil_id)}, "range": "0-9999", **params}):
+            # Anchors (^id$) make GLPI match the whole value; the exact test below stays as a guard
+            query = {"range": "0-9999", **params, "searchText": {column: f"^{itil_id}$"}}
+            for row in model.get_all(**query):
                 if str(row.get(column)) == str(itil_id):
                     found[int(row["id"])] = row
         return [found[key] for key in sorted(found)]

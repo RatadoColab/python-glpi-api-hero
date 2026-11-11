@@ -121,8 +121,8 @@ The distribution name is now `glpi-api-hero` (`pip install glpi-api-hero`); the 
 costs, documents, links between ITIL objects (`link_ticket`, `link_problem`, `link_change`, `unlink`) and the
 searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `get_by_group`).
 
-- The first argument of every method is the id of the ITIL object; the sub-item methods take the id of the
-  sub-item (`update_task(task_id, data)`).
+- `add_*` and `get_*` take the id of the ITIL object first; `update_*`, `delete_*`, `delete_actor` and `unlink` take
+  the id of the sub-item or link row (`update_task(task_id, data)`, `delete_actor(link_id, kind)`).
 - Sub-items are now attached with the column GLPI expects (`tickets_id`, `changes_id`, `problems_id`,
   `tickets_id_1`...). In 0.1 several helpers sent `items_id`/`itemtype` and the request was ignored or refused.
 - Input dicts are never modified.

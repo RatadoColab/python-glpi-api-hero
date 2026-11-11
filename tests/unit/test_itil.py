@@ -363,8 +363,8 @@ def test_get_linked_tickets_of_a_ticket_filters_both_sides_exactly(session: Glpi
     session.override("GET", "Ticket_Ticket", 200, rows)
     assert [row["id"] for row in Ticket.get_linked_tickets(10)] == [5, 6]
     queries = [call["query"] for call in session.captured()]
-    assert queries == [{"range": "0-9999", "searchText[tickets_id_1]": "10"},
-                       {"range": "0-9999", "searchText[tickets_id_2]": "10"}]
+    assert queries == [{"range": "0-9999", "searchText[tickets_id_1]": "^10$"},
+                       {"range": "0-9999", "searchText[tickets_id_2]": "^10$"}]
 
 
 @pytest.mark.parametrize(("name", "link_itemtype"), [
@@ -487,3 +487,25 @@ def test_search_followups_searches_the_followup_itemtype(session: GlpiMock) -> N
     assert request["path"] == "search/ITILFollowup"
     assert request["query"]["criteria[0][value]"] == "x"
     assert request["query"]["range"] == "0-4"
+
+
+def test_get_linked_tickets_keeps_the_anchored_search_when_params_collide(session: GlpiMock) -> None:
+    """A caller ``searchText`` cannot replace the filter; ``range`` can be narrowed."""
+    Ticket.get_linked_tickets(10, searchText={"tickets_id_1": "5"}, range="0-4")
+    queries = [call["query"] for call in session.captured()]
+    assert queries[0] == {"range": "0-4", "searchText[tickets_id_1]": "^10$"}
+
+
+def test_approve_solution_ignores_a_blank_comment(session: GlpiMock) -> None:
+    """A blank comment is not sent, so GLPI writes its own approval text."""
+    Ticket.approve_solution(7, "   ")
+    assert "content" not in _input(_only(session))
+
+
+def test_get_actors_copies_the_rows_of_the_connector(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The very list objects returned by the lookup are left untouched (``kind`` goes into copies)."""
+    shared = [{"id": 1}]
+    monkeypatch.setattr(Ticket, "get_sub_items", classmethod(lambda cls, *args, **kwargs: shared))
+    result = Ticket.get_actors(7)
+    assert shared == [{"id": 1}]
+    assert [row["kind"] for row in result] == ["user", "group", "supplier"]

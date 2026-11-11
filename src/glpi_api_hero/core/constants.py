@@ -20,7 +20,11 @@ class ActorKind(str, Enum):
 
 
 class LinkType(IntEnum):
-    """Relation between two tickets (value of the ``link`` field of ``Ticket_Ticket``)."""
+    """Relation between two tickets (value of the ``link`` field of ``Ticket_Ticket``).
+
+    ``CHILD`` means the first ticket is a child of the second (GLPI ``SON_OF``). GLPI stores ``PARENT``
+    as the reverse ``CHILD`` row (columns swapped), so reads never return ``PARENT``.
+    """
 
     LINKED = 1
     DUPLICATE = 2

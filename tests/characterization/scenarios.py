@@ -548,8 +548,8 @@ CALL_RENAMES: dict[str, str] = {
     "Ticket.addActor": "Ticket.add_actor",
     "Ticket.deleteActor": "Ticket.delete_actor",
     "Ticket.getActors": "Ticket.get_actors",
-    "Ticket.addLinkedTicket": "Ticket.add_linked_ticket",
-    "Ticket.deleteLinkedTicket": "Ticket.delete_linked_ticket",
+    "Ticket.addLinkedTicket": "Ticket.link_ticket",
+    "Ticket.deleteLinkedTicket": "Ticket.unlink",
     "Ticket.getLinkedTickets": "Ticket.get_linked_tickets",
 }
 
