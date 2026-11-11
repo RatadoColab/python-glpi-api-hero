@@ -374,6 +374,7 @@ SCENARIOS: list[dict[str, Any]] = [
     {"id": "commondbtm-add-many-empty", "since": "v2", "call": "Location.add_many", "args": [[]]},
     {"id": "commondbtm-update-many-empty", "since": "v2", "call": "Location.update_many", "args": [[]]},
     {"id": "commondbtm-delete-many-empty", "since": "v2", "call": "Location.delete_many", "args": [[]]},
+    {"id": "computer-getconnections", "since": "v2", "call": "Computer.get_connections", "args": [3]},
     {"id": "ticket-getsatisfaction", "since": "v2", "call": "Ticket.get_satisfaction", "args": [10],
      "responses": [{"method": "GET", "path": "Ticket/10/TicketSatisfaction", "status": 200,
                     "body": [{"id": 3, "tickets_id": 10, "satisfaction": 4}]}]},
@@ -417,7 +418,11 @@ _TICKET_LINK_ROWS = [
     {"id": 7, "tickets_id_1": 100, "tickets_id_2": 101, "link": 1},
 ]
 
+_D46 = ("D46: HasTickets.get_tickets reads the Item_Ticket rows of the item (GLPI filters them by itemtype and "
+        "items_id); option 13 of Ticket is not searchable and 131 is the item type (known bug fixed, P-004)")
+
 V2: dict[str, dict[str, Any]] = {
+    "computer-gettickets": {"known_bug": None, "requests_change": _D46, "fixed": _D46},
     "group-getbyname": {"requests_change": _D39, "fixed": _D39},
     "group-deleteuser-not-member": {"requests_change": _D39},
     "group-deleteuser-empty-group": {"requests_change": _D39},
