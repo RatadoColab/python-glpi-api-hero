@@ -15,7 +15,7 @@ from email.message import Message
 from email.utils import decode_rfc2231
 from pathlib import Path, PureWindowsPath
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import requests
 
@@ -105,6 +105,12 @@ class LegacyRestConnector(Connector):
             raise ConfigurationError("a user token or a username and password are required")
         if username and password is None:
             raise ConfigurationError("a password is required with a username")
+        parsed = urlsplit(url)
+        if parsed.username or parsed.password:
+            # Credentials in the URL would reach logs and error messages
+            raise ConfigurationError("the GLPI API URL must not contain credentials")
+        if parsed.scheme == "http":
+            logger.warning("the GLPI API URL uses plain http: tokens and passwords travel unencrypted")
         self.url = url.rstrip("/")
         self.timeout = timeout
         self._app_token = app_token
@@ -250,7 +256,8 @@ class LegacyRestConnector(Connector):
             # verify is passed on every call: False and a bundle path are never replaced by the environment,
             # while True still honors REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE (requests behavior)
             response = self._http.request(method, url, params=params, json=body, headers=headers, files=files,
-                                          data=data, timeout=self.timeout, verify=self._verify, stream=stream)
+                                          data=data, timeout=self.timeout, verify=self._verify, stream=stream,
+                                          allow_redirects=False)
         except requests.exceptions.RequestException as exc:
             self._scrub_exception(exc)
             raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc

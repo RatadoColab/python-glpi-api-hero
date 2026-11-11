@@ -140,7 +140,7 @@ def _on_message(
     """Pika callback invoked for each message received from the main queue.
 
     Error handling flow:
-    - Invalid JSON        -> nack without requeue (goes straight to the DLQ).
+    - Invalid JSON or not an object -> nack without requeue (goes straight to the DLQ).
     - RateLimitError      -> republish to the RETRY_QUEUE with TTL and ack the original message.
     - GlpiConnectionError -> nack with requeue and stop the consumer (an external restart is expected).
     - Any other error     -> nack without requeue (permanent error, goes to the DLQ).
@@ -149,6 +149,12 @@ def _on_message(
         unit = json.loads(body)
     except json.JSONDecodeError as exc:
         print(f"[MESSAGE ERROR] invalid body: {exc}")
+        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+        return
+
+    if not isinstance(unit, dict):
+        # A valid JSON that is not an object cannot be processed: send it to the DLQ instead of crashing
+        print("[MESSAGE ERROR] the body must be a JSON object")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         return
 
