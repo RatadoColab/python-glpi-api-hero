@@ -1,12 +1,12 @@
 from typing import Any
 
 from glpi_api_hero.assistance.ticket import Ticket
-from glpi_api_hero.core.capabilities import HasCertificates, HasDocuments
+from glpi_api_hero.core.capabilities import HasCertificates, HasDocuments, HasLogs
 from glpi_api_hero.core.common_dbtm import CommonDBTM
 from glpi_api_hero.core.constants import ActorType
 
 
-class User(HasDocuments, HasCertificates, CommonDBTM):
+class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
     """GLPI users (Administration > Users)."""
 
     # Search option ids of the User itemtype (GLPI 10 rawSearchOptions)

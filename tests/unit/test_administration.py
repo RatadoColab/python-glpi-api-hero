@@ -16,10 +16,13 @@ def test_profile_users_and_user_emails(session: GlpiMock) -> None:
 def test_entity_tree_lookups(session: GlpiMock) -> None:
     """Entity inherits the tree lookups (options 14 name, 13 parent)."""
     Entity.get_by_name("HQ")
-    Entity.get_children(0)
-    queries = [c["query"] for c in session.captured()]
-    assert queries[0]["criteria[0][field]"] == "14"
-    assert (queries[1]["criteria[0][field]"], queries[1]["criteria[0][value]"]) == ("13", "0")
+    Entity.get_children(5)
+    Entity.get_roots()
+    calls = session.captured()
+    assert calls[0]["query"]["criteria[0][field]"] == "14"
+    # Option 13 of Entity is the country: children are read by the entities_id column instead
+    assert (calls[1]["path"], calls[1]["query"]) == ("Entity", {"searchText[entities_id]": "^5$"})
+    assert calls[2]["query"] == {"searchText[entities_id]": "^0$"}
 
 
 def test_group_is_a_tree_with_notes_and_user_documents(session: GlpiMock) -> None:
