@@ -7,6 +7,7 @@ import os
 import sys
 import time
 from pathlib import Path
+
 # Importando bibliotecas necessárias para a interação com o RabbitMQ.
 import pika
 from dotenv import load_dotenv
@@ -17,9 +18,9 @@ _PROJECT_ROOT = _BASE_DIR.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / 'src'))
 sys.path.insert(0, str(_BASE_DIR.parent))
 
-from glpi_api_hero import ApiCommunication
-from glpi_api_hero.exceptions import ApiConnectionError, ApiRateLimitError
-from glpi_api_hero.location import Location
+from glpi_api_hero import Glpi
+from glpi_api_hero.dropdowns import Location
+from glpi_api_hero.exceptions import GlpiConnectionError, RateLimitError
 
 load_dotenv(_BASE_DIR / '.env')
 
@@ -49,7 +50,7 @@ GLPI_PROFILES_ID   = int(os.getenv('GLPI_PROFILES_ID', '4'))
 _missing = [k for k, v in {'GLPI_URL': GLPI_URL, 'GLPI_APPTOKEN': GLPI_APPTOKEN,
                              'GLPI_USER': GLPI_USER, 'GLPI_PASSWD': GLPI_PASSWD}.items() if not v]
 if _missing:
-    raise EnvironmentError(f"Required variables missing from .env: {', '.join(_missing)}")
+    raise OSError(f"Required variables missing from .env: {', '.join(_missing)}")
 # Delay entre mensagens (segundos) — throttle proativo para não atingir o rate limit
 GLPI_REQUEST_DELAY = float(os.getenv('GLPI_REQUEST_DELAY', '0.5'))
 # Tempo que a mensagem fica na fila de retry antes de voltar para a fila principal (ms)
@@ -78,18 +79,8 @@ def _connect_glpi() -> None:
     a sessão e seleciona o perfil e entidade indicados nas variáveis de ambiente.
     Deve ser chamada uma vez antes de iniciar o consumo da fila.
     """
-    ApiCommunication.setConnectionParameters(
-        url=GLPI_URL,
-        apptoken=GLPI_APPTOKEN,
-        user=GLPI_USER,
-        passwd=GLPI_PASSWD,
-    )
-    ApiCommunication.initSession()
-    ApiCommunication.setProfileEntity(
-        profiles_id=GLPI_PROFILES_ID,
-        entities_id=GLPI_ENTITIES_ID,
-        is_recursive=True,
-    )
+    Glpi.connect(GLPI_URL, GLPI_APPTOKEN, username=GLPI_USER, password=GLPI_PASSWD)
+    Glpi.set_profile_entity(GLPI_PROFILES_ID, GLPI_ENTITIES_ID, is_recursive=True)
 
 
 def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel) -> None:
@@ -132,10 +123,10 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
 def _process(unit: dict) -> None:
     """Apply one record to GLPI.
 
-    Delegates to Location.updateFromList, which creates or updates the Location
+    Delegates to Location.update_from_list, which creates or updates the Location
     matching the received record (converted by MAPPER when configured).
     """
-    Location.updateFromList(
+    Location.update_from_list(
         [unit], entities_id=GLPI_ENTITIES_ID, mapper=MAPPER, key_field=KEY_FIELD
     )
 
@@ -150,8 +141,8 @@ def _on_message(
 
     Fluxo de tratamento de erros:
     - JSON inválido       → nack sem requeue (vai para a DLQ imediatamente).
-    - ApiRateLimitError   → republica na RETRY_QUEUE com TTL e faz ack da mensagem original.
-    - ApiConnectionError  → nack com requeue e para o consumer (espera reinício externo).
+    - RateLimitError   → republica na RETRY_QUEUE com TTL e faz ack da mensagem original.
+    - GlpiConnectionError  → nack com requeue e para o consumer (espera reinício externo).
     - Qualquer outro erro → nack sem requeue (erro permanente, vai para a DLQ).
     """
     try:
@@ -168,7 +159,7 @@ def _on_message(
         print(f"[OK]   {label}")
         time.sleep(GLPI_REQUEST_DELAY)
 
-    except ApiRateLimitError as exc:
+    except RateLimitError as exc:
         # Rate limit atingido: republica na fila de retry e aguarda o TTL expirar.
         # O RabbitMQ devolve a mensagem à fila principal automaticamente após GLPI_RETRY_DELAY_MS.
         delay_s = GLPI_RETRY_DELAY_MS // 1000
@@ -181,7 +172,7 @@ def _on_message(
         )
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
-    except ApiConnectionError as exc:
+    except GlpiConnectionError as exc:
         # GLPI indisponível: devolve à fila e encerra o consumer.
         # O gerenciador de processos (Docker restart, systemd) deve reiniciá-lo.
         print(f"[GLPI INDISPONÍVEL] {exc}")
@@ -220,8 +211,8 @@ def consume() -> None:
     finally:
         connection.close()
         try:
-            ApiCommunication.killSession()
-        except ApiConnectionError:
+            Glpi.disconnect()
+        except GlpiConnectionError:
             pass
 
 

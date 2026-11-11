@@ -2,10 +2,10 @@
 
 Usage with the library:
 
-    from glpi_api_hero import Location
+    from glpi_api_hero.dropdowns import Location
     from examples.org_units.mapper import map_org_unit
 
-    Location.updateFromList(units, mapper=map_org_unit, key_field='code')
+    Location.update_from_list(units, mapper=map_org_unit, key_field='code')
 """
 
 

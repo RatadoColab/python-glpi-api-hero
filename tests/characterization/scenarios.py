@@ -433,6 +433,91 @@ V2: dict[str, dict[str, Any]] = {
 }
 
 
+# Public method renames of phase 04.1 (snake_case, D32): old ``Class.method`` -> new name
+CALL_RENAMES: dict[str, str] = {
+    "User.getAllProfiles": "User.get_profiles",
+    "User.getAllGroups": "User.get_groups",
+    "User.getAllTickets": "User.get_tickets",
+    "User.getByUsername": "User.get_by_username",
+    "User.getByEmail": "User.get_by_email",
+    "Group.getAllUsers": "Group.get_users",
+    "Group.addUser": "Group.add_user",
+    "Group.deleteUser": "Group.delete_user",
+    "Group.getAllTickets": "Group.get_tickets",
+    "Group.getByName": "Group.get_by_name",
+    "Computer.getByName": "Computer.get_by_name",
+    "Computer.getBySerial": "Computer.get_by_serial",
+    "Computer.getByPatrimonio": "Computer.get_by_inventory_number",
+    "Computer.getOperatingSystem": "Computer.get_operating_system",
+    "Computer.getSoftwares": "Computer.get_softwares",
+    "Computer.getNetworkPorts": "Computer.get_network_ports",
+    "Computer.getProcessors": "Computer.get_processors",
+    "Computer.getMemories": "Computer.get_memories",
+    "Computer.getDisks": "Computer.get_disks",
+    "Computer.getHardDrives": "Computer.get_hard_drives",
+    "Computer.getVirtualMachines": "Computer.get_virtual_machines",
+    "Computer.getTickets": "Computer.get_tickets",
+    "Computer.getInfocom": "Computer.get_infocom",
+    "Computer.getLogs": "Computer.get_logs",
+    "Location.getByName": "Location.get_by_name",
+    "Location.getByCode": "Location.get_by_code",
+    "Location.getByCompleteName": "Location.get_by_complete_name",
+    "Location.getChildren": "Location.get_children",
+    "Location.getRoots": "Location.get_roots",
+    "Location.getComputers": "Location.get_computers",
+    "Location.getNetworkEquipments": "Location.get_network_equipments",
+    "Location.getTickets": "Location.get_tickets",
+    "Location.getUsers": "Location.get_users",
+    "Location.addFromList": "Location.add_from_list",
+    "Location.updateFromList": "Location.update_from_list",
+    "Location.getLogs": "Location.get_logs",
+    "Ticket.addFollowUp": "Ticket.add_followup",
+    "Ticket.updateFollowUp": "Ticket.update_followup",
+    "Ticket.deleteFollowUp": "Ticket.delete_followup",
+    "Ticket.getFollowUps": "Ticket.get_followups",
+    "Ticket.searchFollowUps": "Ticket.search_followups",
+    "Ticket.addSolution": "Ticket.add_solution",
+    "Ticket.updateSolution": "Ticket.update_solution",
+    "Ticket.deleteSolution": "Ticket.delete_solution",
+    "Ticket.getSolution": "Ticket.get_solutions",
+    "Ticket.ApprovalSolution": "Ticket.approve_solution",
+    "Ticket.addValidation": "Ticket.add_validation",
+    "Ticket.updateValidation": "Ticket.update_validation",
+    "Ticket.deleteValidation": "Ticket.delete_validation",
+    "Ticket.getValidations": "Ticket.get_validations",
+    "Ticket.addTask": "Ticket.add_task",
+    "Ticket.updateTask": "Ticket.update_task",
+    "Ticket.deleteTask": "Ticket.delete_task",
+    "Ticket.getTasks": "Ticket.get_tasks",
+    "Ticket.addItem": "Ticket.add_item",
+    "Ticket.deleteItem": "Ticket.delete_item",
+    "Ticket.getItems": "Ticket.get_items",
+    "Ticket.addActor": "Ticket.add_actor",
+    "Ticket.deleteActor": "Ticket.delete_actor",
+    "Ticket.getActors": "Ticket.get_actors",
+    "Ticket.addLinkedTicket": "Ticket.add_linked_ticket",
+    "Ticket.deleteLinkedTicket": "Ticket.delete_linked_ticket",
+    "Ticket.getLinkedTickets": "Ticket.get_linked_tickets",
+}
+
+
+def _rename_calls(scenario: dict[str, Any]) -> dict[str, Any]:
+    """Apply ``CALL_RENAMES`` to a scenario call and to its steps.
+
+    Args:
+        scenario: Scenario dict.
+
+    Returns:
+        A copy with the new method names.
+    """
+    out = dict(scenario)
+    if "call" in out:
+        out["call"] = CALL_RENAMES.get(out["call"], out["call"])
+    if "steps" in out:
+        out["steps"] = [{**step, "call": CALL_RENAMES.get(step["call"], step["call"])} for step in out["steps"]]
+    return out
+
+
 def normalized(scenario: dict[str, Any]) -> dict[str, Any]:
     """Return a scenario with its normalized-contract overrides applied.
 
@@ -442,7 +527,7 @@ def normalized(scenario: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A new dict; ``known_bug`` is dropped when the override sets it to ``None``.
     """
-    merged = {**scenario, **V2.get(scenario["id"], {})}
+    merged = _rename_calls({**scenario, **V2.get(scenario["id"], {})})
     if merged.get("known_bug") is None:
         merged.pop("known_bug", None)
     return merged

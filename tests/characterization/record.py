@@ -64,25 +64,37 @@ class _FrozenDate(_dt.date):
         return cls(FROZEN_NOW.year, FROZEN_NOW.month, FROZEN_NOW.day)
 
 
-def _package() -> Any:
-    """Import the library package.
-
-    Returns:
-        The ``glpi_api_hero`` module.
-    """
-    return importlib.import_module("glpi_api_hero")
+# Modules searched, in order, to resolve the class names used by the scenarios
+CLASS_MODULES = (
+    "glpi_api_hero",
+    "glpi_api_hero.core",
+    "glpi_api_hero.core._legacy_children",
+    "glpi_api_hero.administration",
+    "glpi_api_hero.assets",
+    "glpi_api_hero.assistance",
+    "glpi_api_hero.dropdowns",
+    "glpi_api_hero.ticket_dashboard",
+    "tests.characterization.legacy_session",
+)
 
 
 def resolve_class(name: str) -> Any:
-    """Resolve a class name exported by the library.
+    """Resolve a class name used by the scenarios.
 
     Args:
         name: Class name (e.g. ``Location``).
 
     Returns:
         The class object.
+
+    Raises:
+        AttributeError: When no searched module defines it.
     """
-    return getattr(_package(), name)
+    for module_name in CLASS_MODULES:
+        module = importlib.import_module(module_name)
+        if hasattr(module, name):
+            return getattr(module, name)
+    raise AttributeError(f"unknown class {name!r}")
 
 
 def resolve(value: Any) -> Any:

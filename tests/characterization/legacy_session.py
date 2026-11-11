@@ -1,15 +1,8 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (C) 2026 Andre Proto
-#
-# This file is part of the GlpiApiHero project.
-# It is licensed under the GNU General Public License v3.0 or (at your option)
-# any later version. You should have received a copy of the GNU General Public
-# License along with this file. If not, see <https://www.gnu.org/licenses/>.
-#
-# Description: Temporary adapter keeping the former session API on top of Glpi.
-"""Former session API, kept as a thin adapter over :class:`~glpi_api_hero.core.session.Glpi`.
+"""Former session API (``ApiCommunication``), kept only for the characterization tests.
 
-New code should use ``Glpi`` directly. This module is removed in a later release.
+The library no longer ships it (removed in phase 04.1, D32). The scenarios that recorded the
+session behavior of point A still run through this copy, so the HTTP requests and results of
+``Glpi`` stay pinned by the same oracle.
 """
 
 from __future__ import annotations
