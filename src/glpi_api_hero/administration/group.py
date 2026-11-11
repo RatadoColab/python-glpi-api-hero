@@ -10,6 +10,7 @@ class Group(CommonDBTM):
 
     # Search option ids of the Group itemtype (GLPI 10 rawSearchOptions)
     SEARCH_FIELD_COMPLETE_NAME = 1
+    SEARCH_FIELD_NAME = 14
 
     @classmethod
     def get_users(cls, group_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -55,7 +56,8 @@ class Group(CommonDBTM):
         Returns:
             list | None: Resultado da deleção ou None se o vínculo não for encontrado.
         """
-        membros = cls.get_users(group_id)
+        # The whole membership is read: the default page would hide members beyond it
+        membros = cls.get_users(group_id, range="0-9999")
         if not membros:
             return None
 
@@ -113,7 +115,7 @@ class Group(CommonDBTM):
         """
         criteria = [
             {
-                "field": cls.SEARCH_FIELD_COMPLETE_NAME,
+                "field": cls.SEARCH_FIELD_NAME,
                 "searchtype": "equals",
                 "value": name,
             }

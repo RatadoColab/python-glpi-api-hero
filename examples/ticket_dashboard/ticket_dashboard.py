@@ -30,7 +30,7 @@ class TicketDashboard(CommonDBTM):
         print(f"Dashboard gerado em: {caminho}")
 
     Nota sobre SLA:
-        Os campos de SLA usam ``FIELD_PRAZO = 155`` (time_to_resolve).
+        Os campos de SLA usam ``FIELD_PRAZO = 18`` (time_to_resolve).
         Sobrescreva este atributo de classe se seu GLPI usar um field_id diferente.
     """
 
@@ -193,7 +193,7 @@ class TicketDashboard(CommonDBTM):
 
         Args:
             date_from:  Data inicial no formato YYYY-MM-DD (inclusive).
-            date_to:    Data final no formato YYYY-MM-DD (inclusive).
+            date_to:    Data final no formato YYYY-MM-DD (exclusiva: chamados do último dia não entram).
             categories: Mapeamento {nome_exibicao: glpi_itilcategory_id}.
                         Ex.: {"Infraestrutura": 3, "Sistemas": 5}.
                         Se None, retorna apenas totais globais.

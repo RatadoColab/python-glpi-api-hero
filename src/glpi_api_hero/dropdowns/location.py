@@ -19,7 +19,8 @@ class Location(CommonDBTM):
     SEARCH_FIELD_COMPLETE_NAME = 1
     SEARCH_FIELD_NAME = 14
     SEARCH_FIELD_PARENT = 13
-    # "code" is not a core GLPI field: option 11 is the building number (see PENDING P-004)
+    # "code" is not a core GLPI field: option 11 is the building number; the field of the
+    # deployment (e.g. a plugin option) must be set by the application
     SEARCH_FIELD_CODE = 11
 
     # Métodos de busca ################################
@@ -233,7 +234,7 @@ class Location(CommonDBTM):
         """
         # Apply the mapper (when provided) and attach parent location and entity
         mapped_items = [
-            {**(mapper(item) if mapper else dict(item)), "locations_id": locations_id, "entities_id": entities_id}
+            {"locations_id": locations_id, "entities_id": entities_id, **(mapper(item) if mapper else dict(item))}
             for item in items
         ]
         return cls.add_many(mapped_items)
@@ -299,7 +300,7 @@ class Location(CommonDBTM):
                 results.append(cls.update(existing["id"], mapped))
             else:
                 try:
-                    results.append(cls.add({**mapped, "locations_id": locations_id, "entities_id": entities_id}))
+                    results.append(cls.add({"locations_id": locations_id, "entities_id": entities_id, **mapped}))
                 except GlpiAPIError as exc:
                     if "Duplicate entry" in str(exc):
                         logger.warning(

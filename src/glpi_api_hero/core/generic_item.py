@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import functools
 import re
+import threading
 from typing import Any, NoReturn
 
 from glpi_api_hero.core.common_dbtm import CommonDBTM
+
+# Classes already generated, by itemtype (guarded by a lock: ``of`` returns one class per itemtype)
+_CLASSES: dict[str, type[CommonDBTM]] = {}
+_LOCK = threading.Lock()
 
 # Itemtype: identifier, optionally namespaced with single backslashes (``Glpi\Socket``)
 _ITEMTYPE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\\[A-Za-z][A-Za-z0-9_]*)*$")
@@ -50,9 +54,23 @@ class GenericItem(CommonDBTM, metaclass=_GenericMeta):
     __new__ = _not_instantiable  # type: ignore[assignment]
 
     @classmethod
-    @functools.cache
     def _build(cls, itemtype: str) -> type[CommonDBTM]:
         """Create (once per itemtype) the model class.
+
+        Args:
+            itemtype: Validated GLPI itemtype.
+
+        Returns:
+            The generated class.
+        """
+        with _LOCK:
+            if itemtype not in _CLASSES:
+                _CLASSES[itemtype] = cls._create(itemtype)
+            return _CLASSES[itemtype]
+
+    @classmethod
+    def _create(cls, itemtype: str) -> type[CommonDBTM]:
+        """Create the model class of an itemtype.
 
         Args:
             itemtype: Validated GLPI itemtype.

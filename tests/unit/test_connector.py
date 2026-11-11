@@ -512,3 +512,28 @@ def test_downloaded_file_is_owner_only_unless_asked(session: GlpiMock, tmp_path:
         os.umask(previous)
     assert private.stat().st_mode & 0o777 == 0o600
     assert shared.stat().st_mode & 0o777 == 0o644
+
+
+@pytest.mark.parametrize("segment", ["..", ".", ""])
+def test_dot_and_empty_path_segments_are_refused(session: GlpiMock, segment: str) -> None:
+    """A segment that would change the endpoint reached by the request is never sent.
+
+    Args:
+        session: Simulator with an open session.
+        segment: Dangerous path segment.
+    """
+    session.reset_calls()
+    with pytest.raises(BadRequestError, match="invalid path segment"):
+        _connector().get_sub_items("Computer", 3, segment)
+    assert session.captured() == []
+
+
+def test_path_segments_are_percent_encoded(session: GlpiMock) -> None:
+    """Slashes inside a segment stay inside it.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.reset_calls()
+    _connector().get_sub_items("Computer", 3, "User/1")
+    assert session.rsps.calls[0].request.url.split("?")[0].endswith("/Computer/3/User%2F1")

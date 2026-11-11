@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import urllib.parse
 import uuid
 from collections.abc import Iterable, Sequence
 from email.message import Message
@@ -207,9 +208,20 @@ class LegacyRestConnector(Connector):
             *parts: Path segments.
 
         Returns:
-            The URL.
+            The URL, with every segment percent-encoded.
+
+        Raises:
+            BadRequestError: When a segment is empty or is a dot segment (``.``/``..``), which
+                would change the endpoint the request reaches.
         """
-        return "/".join([self.url, *(str(part) for part in parts)])
+        segments = []
+        for part in parts:
+            text = str(part)
+            if text in ("", ".", ".."):
+                raise BadRequestError(f"invalid path segment: {text!r}")
+            # Slashes and other reserved characters inside a segment never reach another endpoint
+            segments.append(urllib.parse.quote(text, safe=""))
+        return "/".join([self.url, *segments])
 
     def _send(self, method: str, parts: Iterable[Any], *, params: Any = None, body: Any = None,
               headers: dict[str, Any] | None = None, files: Any = None, data: Any = None,

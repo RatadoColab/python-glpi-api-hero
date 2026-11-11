@@ -85,3 +85,23 @@ def test_invalid_name_sends_no_request(session: GlpiMock) -> None:
     with pytest.raises(ValueError, match="invalid GLPI itemtype"):
         GenericItem.of("../x").get_all()
     assert session.captured() == []
+
+
+def test_concurrent_first_calls_share_one_class() -> None:
+    """Threads asking for a new itemtype at the same time get the same class object."""
+    import threading
+
+    results: list[type] = []
+    barrier = threading.Barrier(8)
+
+    def worker() -> None:
+        """Wait for the others, then ask for the class."""
+        barrier.wait()
+        results.append(GenericItem.of("PluginRaceTest"))
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len({id(cls) for cls in results}) == 1
