@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 import urllib.parse
 import uuid
 from collections.abc import Iterable, Sequence
@@ -826,7 +827,15 @@ class LegacyRestConnector(Connector):
                 Path(temp_path).replace(target)
             else:
                 # A hard link fails when the name appeared meanwhile: nothing is overwritten
-                os.link(temp_path, target)
+                try:
+                    os.link(temp_path, target)
+                except FileExistsError:
+                    raise
+                except OSError:
+                    # Filesystems without hard links: fall back to the exclusive creation of the final name
+                    with open(temp_path, "rb") as source, os.fdopen(
+                            os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode), "wb") as sink:
+                        sink.write(source.read())
             if not overwrite:
                 Path(temp_path).unlink(missing_ok=True)
             temp_path = None
@@ -1015,5 +1024,5 @@ def _safe_filename(name: str | None, default: str) -> str:
     # Drive prefixes such as "C:" are dropped (they escape the directory on Windows)
     base = PureWindowsPath(base).name
     # Control characters (NUL, newlines, escapes, DEL) are removed
-    base = "".join(char for char in base if ord(char) >= 32 and ord(char) != 127).strip()
+    base = "".join(char for char in base if unicodedata.category(char) not in ("Cc", "Cf", "Zl", "Zp")).strip()
     return default if base in ("", ".", "..") else base
