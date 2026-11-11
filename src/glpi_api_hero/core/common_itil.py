@@ -47,6 +47,8 @@ class CommonITILObject(CommonDBTM):
     SEARCH_FIELD_REQUESTER_GROUP = 71
     SEARCH_FIELD_ASSIGNED_GROUP = 8
     SEARCH_FIELD_OBSERVER_GROUP = 65
+    # Search option of ITILFollowup that holds the parent itemtype (``itemtype`` column, GLPI 10)
+    SEARCH_FIELD_FOLLOWUP_ITEMTYPE = 6
 
     _task_itemtype: ClassVar[str]
     _validation_itemtype: ClassVar[str | None] = None
@@ -157,19 +159,27 @@ class CommonITILObject(CommonDBTM):
 
     @classmethod
     def search_followups(cls, criteria: list[dict[str, Any]] | None = None, **params: Any) -> list[dict[str, Any]]:
-        """Search follow-ups of any parent with the GLPI search engine.
+        """Search the follow-ups of this kind of parent with the GLPI search engine.
 
-        The search is not restricted to the parent itemtype: filter on the ``itemtype`` column
-        (search option 6) when only the follow-ups of this kind are wanted.
+        The search is restricted to the parent itemtype (a ``Ticket`` search never returns follow-ups of a
+        ``Change``). GLPI has no search option for the parent id, so a single parent is read with
+        ``get_followups``.
 
         Args:
-            criteria: Search criteria (``[{"field": 1, "searchtype": "contains", "value": "x"}]``).
+            criteria: Extra search criteria (``[{"field": 1, "searchtype": "contains", "value": "x"}]``);
+                not modified. They are combined with the itemtype restriction by AND.
             **params: Extra API parameters (``range``, ``sort``...).
 
         Returns:
             Search rows indexed by field id.
         """
-        return cls._child("ITILFollowup").search(criteria, **params)
+        restriction = {"field": cls.SEARCH_FIELD_FOLLOWUP_ITEMTYPE, "searchtype": "equals",
+                       "value": cls._itemtype()}
+        combined = [restriction]
+        for position, criterion in enumerate(criteria or []):
+            # The first user criterion is joined to the restriction by AND, whatever link it carried
+            combined.append({**criterion, "link": "AND"} if position == 0 else dict(criterion))
+        return cls._child("ITILFollowup").search(combined, **params)
 
     # -------------------------------------------------------------- solutions
     @classmethod

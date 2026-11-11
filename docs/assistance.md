@@ -18,6 +18,9 @@ id of the ITIL object; `update_*`/`delete_*` take the id of the sub-item.
 | Links | `link_ticket`, `link_problem`, `link_change`, `get_linked_*`, `unlink` |
 | Search by actor | `get_by_requester`, `get_by_assigned`, `get_by_observer`, `get_by_group` |
 
+`search_followups` only returns the follow-ups of the parent kind it is called on (`Ticket` never returns `Change`
+follow-ups); GLPI has no search option for the parent id, so one parent is read with `get_followups`.
+
 ```python
 from glpi_api_hero.assistance import Ticket
 from glpi_api_hero.core.constants import ActorKind, ActorType, LinkType
