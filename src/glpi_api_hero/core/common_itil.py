@@ -167,18 +167,18 @@ class CommonITILObject(CommonDBTM):
 
         Args:
             criteria: Extra search criteria (``[{"field": 1, "searchtype": "contains", "value": "x"}]``);
-                not modified. They are combined with the itemtype restriction by AND.
+                not modified. They run as one group joined to the itemtype restriction by AND (an OR among them
+                stays inside the group).
             **params: Extra API parameters (``range``, ``sort``...).
 
         Returns:
             Search rows indexed by field id.
         """
-        restriction = {"field": cls.SEARCH_FIELD_FOLLOWUP_ITEMTYPE, "searchtype": "equals",
-                       "value": cls._itemtype()}
-        combined = [restriction]
-        for position, criterion in enumerate(criteria or []):
-            # The first user criterion is joined to the restriction by AND, whatever link it carried
-            combined.append({**criterion, "link": "AND"} if position == 0 else dict(criterion))
+        combined: list[dict[str, Any]] = [
+            {"field": cls.SEARCH_FIELD_FOLLOWUP_ITEMTYPE, "searchtype": "equals", "value": cls._itemtype()}]
+        if criteria:
+            # The caller criteria go in one nested group, so an OR among them cannot escape the restriction
+            combined.append({"link": "AND", "criteria": [dict(criterion) for criterion in criteria]})
         return cls._child("ITILFollowup").search(combined, **params)
 
     # -------------------------------------------------------------- solutions
