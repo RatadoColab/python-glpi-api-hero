@@ -55,14 +55,29 @@ def test_connect_without_app_token(glpi_mock: GlpiMock) -> None:
 
 
 def test_connect_twice_closes_previous_session(glpi_mock: GlpiMock) -> None:
-    """A new ``connect`` kills the previous session first.
+    """A new ``connect`` logs in first and only then kills the previous session.
 
     Args:
         glpi_mock: Active GLPI simulator.
     """
     Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
     Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
-    assert _paths(glpi_mock) == ["GET initSession", "GET killSession", "GET initSession"]
+    assert _paths(glpi_mock) == ["GET initSession", "GET initSession", "GET killSession"]
+
+
+def test_failed_reconnect_keeps_the_current_session(glpi_mock: GlpiMock) -> None:
+    """A refused new login leaves the working session untouched.
+
+    Args:
+        glpi_mock: Active GLPI simulator.
+    """
+    Glpi.connect(BASE_URL, APP_TOKEN, user_token=USER_TOKEN)
+    connector = Glpi.connector()
+    glpi_mock.override("GET", "initSession", 401, ["ERROR_GLPI_LOGIN", "refused"])
+    with pytest.raises(AuthenticationError):
+        Glpi.connect(BASE_URL, APP_TOKEN, user_token="other")
+    assert Glpi.is_connected()
+    assert Glpi.connector() is connector
 
 
 def test_session_context_manager(glpi_mock: GlpiMock) -> None:

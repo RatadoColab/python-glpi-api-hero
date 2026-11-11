@@ -70,17 +70,18 @@ class Glpi:
             raise ConfigurationError("a user token or a username and password are required")
         if verify_tls is False:
             logger.warning("TLS certificate verification is disabled for %s", url)
-        # The connector validates its parameters before the current session is closed
+        # The connector validates its parameters before anything else is touched
         connector = connector_class(url, app_token, user_token=user_token, username=username, password=password,
                                     verify=verify_tls, timeout=timeout)
-        cls._close_quietly()
         try:
             connector.init_session()
         except BaseException:
-            # Release the HTTP pool of the connector that could not log in
+            # Release the HTTP pool of the connector that could not log in; the current session stays open
             with contextlib.suppress(GlpiError):
                 connector.kill_session()
             raise
+        # The new login succeeded: only now the previous session is replaced
+        cls._close_quietly()
         cls._connector = connector
 
     @classmethod

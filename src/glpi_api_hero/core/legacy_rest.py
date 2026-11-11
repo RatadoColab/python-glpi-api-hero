@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import re
-import tempfile
+import uuid
 from collections.abc import Iterable, Sequence
 from email.message import Message
 from email.utils import decode_rfc2231
@@ -590,7 +590,7 @@ class LegacyRestConnector(Connector):
         all_criteria = list(criteria or [])
         all_criteria += [{**criterion, "meta": True} for criterion in (metacriteria or [])]
         query.update(self._criteria_params(itemtype, all_criteria))
-        query.update(params)
+        query.update(_convert_bools(params))
         return query
 
     def search_body(self, itemtype: str, criteria: Sequence[dict[str, Any]] | None = None, *,
@@ -659,6 +659,7 @@ class LegacyRestConnector(Connector):
         Returns:
             One result per item.
         """
+        _require_ids(items)
         return self._write("PUT", [itemtype], items)
 
     def delete_items(self, itemtype: str, ids: Sequence[int], *, force_purge: bool = False,
@@ -710,6 +711,7 @@ class LegacyRestConnector(Connector):
         Returns:
             One result per child.
         """
+        _require_ids(items)
         return self._write("PUT", [itemtype, items_id, sub_itemtype], items)
 
     def delete_sub_items(self, itemtype: str, items_id: int, sub_itemtype: str,
@@ -795,7 +797,9 @@ class LegacyRestConnector(Connector):
             if target.resolve().parent != directory.resolve():
                 target = directory / f"document-{documents_id}"
             # The file is written aside and renamed at the end: a failed transfer never leaves a partial file
-            handle_fd, temp_path = tempfile.mkstemp(dir=directory, prefix=".glpi-download-")
+            temp_path = str(directory / f".glpi-download-{uuid.uuid4().hex}")
+            # Created with the default mode (0666 minus the umask), unlike mkstemp (0600)
+            handle_fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
             with os.fdopen(handle_fd, "wb") as handle:
                 for chunk in response.iter_content(chunk_size=65536):
                     handle.write(chunk)
@@ -822,6 +826,21 @@ def _input_id(item: Any) -> int | None:
     """
     value = item.get("id") if isinstance(item, dict) else None
     return int(value) if isinstance(value, (int, str)) and str(value).isdigit() else None
+
+
+def _require_ids(items: Sequence[Any]) -> None:
+    """Refuse an update whose items do not all carry an ``id``.
+
+    GLPI silently skips such items and answers 200, which would look like a success.
+
+    Args:
+        items: ``input`` payload of an update.
+
+    Raises:
+        BadRequestError: When an item has no usable ``id``.
+    """
+    if any(_input_id(item) is None for item in items):
+        raise BadRequestError("every item to update needs an 'id'")
 
 
 def _parse_results(payload: Any) -> list[OperationResult]:

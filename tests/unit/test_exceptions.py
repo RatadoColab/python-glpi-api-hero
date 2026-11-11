@@ -132,3 +132,15 @@ def test_partial_operation_error_lists_failures() -> None:
     assert error.results == results
     assert error.failed == [results[1]]
     assert error.error_code == "ERROR_GLPI_PARTIAL_ADD"
+
+
+def test_partial_operation_error_survives_pickle() -> None:
+    """The exception round-trips through pickle (worker pools send it back to the parent)."""
+    import pickle
+
+    from glpi_api_hero.core.types import OperationResult
+
+    error = PartialOperationError("2 of 3 failed", [OperationResult(1, True), OperationResult(None, False, "x")],
+                                  error_code="ERROR_GLPI_PARTIAL_UPDATE")
+    copy = pickle.loads(pickle.dumps(error))
+    assert (str(copy), copy.results, copy.error_code) == (str(error), error.results, error.error_code)
