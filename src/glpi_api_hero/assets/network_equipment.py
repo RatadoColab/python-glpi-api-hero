@@ -13,6 +13,7 @@ from glpi_api_hero.core.capabilities import (
     HasDomains,
     HasInfocom,
     HasNetworkPorts,
+    HasNotes,
     HasOperatingSystem,
     HasRack,
     HasReservation,
@@ -25,6 +26,7 @@ from glpi_api_hero.core.common_asset import CommonAsset
 
 class NetworkEquipment(
     CommonAsset,
+    HasNotes,
     HasInfocom,
     HasNetworkPorts,
     HasContracts,

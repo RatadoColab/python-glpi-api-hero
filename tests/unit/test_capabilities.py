@@ -67,3 +67,17 @@ def test_get_devices_rejects_unknown_and_foreign_kinds(session: GlpiMock) -> Non
     with pytest.raises(UnsupportedOperationError):
         assets.Enclosure.get_devices(1, "Item_DeviceProcessor")
     assert session.captured() == []
+
+
+def test_computer_can_own_a_case_component(session: GlpiMock) -> None:
+    """``Item_DeviceCase`` is owned by computers only (``itemdevices_itemaffinity``)."""
+    assets.Computer.get_devices(1, "Item_DeviceCase")
+    assert session.captured()[0]["path"] == "Computer/1/Item_DeviceCase"
+    with pytest.raises(UnsupportedOperationError):
+        assets.Phone.get_devices(1, "Item_DeviceCase")
+
+
+def test_get_devices_rows_always_carry_the_kind(session: GlpiMock) -> None:
+    """The row shape does not depend on whether a kind was given."""
+    rows = assets.Computer.get_devices(1, "Item_DeviceMemory")
+    assert {row["device_itemtype"] for row in rows} == {"Item_DeviceMemory"}
