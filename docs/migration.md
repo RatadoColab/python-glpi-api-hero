@@ -142,3 +142,5 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
   cannot be searched by item id).
 - `get_devices(id, "Item_DeviceProcessor")` reads one kind of component; without a kind it reads every kind the
   itemtype can own.
+- The readers that moved to capability mixins take `items_id` as first parameter (positional use is unchanged);
+  `Location.SEARCH_FIELD_NETWORK_EQUIPMENT_LOCATION` does not exist (use `NetworkEquipment.SEARCH_FIELD_LOCATION`).

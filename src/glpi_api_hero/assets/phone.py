@@ -12,6 +12,7 @@ from glpi_api_hero.core.capabilities import (
     HasDomains,
     HasInfocom,
     HasNetworkPorts,
+    HasNotes,
     HasOperatingSystem,
     HasRemoteManagement,
     HasReservation,
@@ -24,6 +25,7 @@ from glpi_api_hero.core.common_asset import CommonAsset
 
 class Phone(
     CommonAsset,
+    HasNotes,
     HasInfocom,
     HasNetworkPorts,
     HasContracts,

@@ -15,6 +15,7 @@ from glpi_api_hero.core.capabilities import (
     HasDomains,
     HasInfocom,
     HasNetworkPorts,
+    HasNotes,
     HasOperatingSystem,
     HasRack,
     HasRemoteManagement,
@@ -28,6 +29,7 @@ from glpi_api_hero.core.common_asset import CommonAsset
 
 class Computer(
     CommonAsset,
+    HasNotes,
     HasInfocom,
     HasNetworkPorts,
     HasContracts,
@@ -85,7 +87,7 @@ class Computer(
         Returns:
             The rows.
         """
-        return cls.get_devices(computer_id, "Item_DeviceProcessor", **params)
+        return cls.get_sub_items(computer_id, "Item_DeviceProcessor", **params)
 
     @classmethod
     def get_memories(cls, computer_id: int, **params: Any) -> list[dict[str, Any]]:
@@ -98,7 +100,7 @@ class Computer(
         Returns:
             The rows.
         """
-        return cls.get_devices(computer_id, "Item_DeviceMemory", **params)
+        return cls.get_sub_items(computer_id, "Item_DeviceMemory", **params)
 
     @classmethod
     def get_hard_drives(cls, computer_id: int, **params: Any) -> list[dict[str, Any]]:
@@ -111,7 +113,7 @@ class Computer(
         Returns:
             The rows.
         """
-        return cls.get_devices(computer_id, "Item_DeviceHardDrive", **params)
+        return cls.get_sub_items(computer_id, "Item_DeviceHardDrive", **params)
 
     @classmethod
     def get_virtual_machines(cls, computer_id: int, **params: Any) -> list[dict[str, Any]]:

@@ -102,6 +102,12 @@
    "methods": [
     "get_tickets"
    ]
+  },
+  "notes": {
+   "source": "$usenotepad = true in src/<Itemtype>.php",
+   "methods": [
+    "get_notes"
+   ]
   }
  },
  "matrix": {
@@ -122,7 +128,8 @@
    "rackable",
    "remote_management",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "Monitor": [
    "infocom",
@@ -135,7 +142,8 @@
    "operatingsystem",
    "rackable",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "Software": [
    "infocom",
@@ -144,7 +152,8 @@
    "domain",
    "appliance",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "NetworkEquipment": [
    "infocom",
@@ -162,7 +171,8 @@
    "simcard",
    "rackable",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "Peripheral": [
    "infocom",
@@ -178,7 +188,8 @@
    "simcard",
    "rackable",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "Printer": [
    "infocom",
@@ -194,15 +205,18 @@
    "itemdevices",
    "simcard",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "CartridgeItem": [
    "infocom",
-   "document"
+   "document",
+   "notes"
   ],
   "ConsumableItem": [
    "infocom",
-   "document"
+   "document",
+   "notes"
   ],
   "Phone": [
    "infocom",
@@ -219,7 +233,8 @@
    "simcard",
    "remote_management",
    "reservation",
-   "ticket"
+   "ticket",
+   "notes"
   ],
   "Rack": [
    "infocom",
@@ -346,6 +361,9 @@
   "Item_DeviceCamera": [
    "Computer",
    "Phone"
+  ],
+  "Item_DeviceCase": [
+   "Computer"
   ]
  }
 }

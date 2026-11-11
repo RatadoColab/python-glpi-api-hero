@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from glpi_api_hero.core.capabilities import HasLogs, HasNotes
+from glpi_api_hero.core.capabilities import HasLogs
 
 
-class CommonAsset(HasNotes, HasLogs):
+class CommonAsset(HasLogs):
     """Shared behavior of the assets that have a name, a serial and an inventory number.
 
-    Subclasses add the capability mixins GLPI allows for their itemtype
-    (see :mod:`glpi_api_hero.core.capabilities`).
+    Subclasses add the capability mixins GLPI allows for their itemtype, including ``HasNotes`` where GLPI sets
+    ``$usenotepad`` (see :mod:`glpi_api_hero.core.capabilities`).
     """
 
     # Search option ids (GLPI 10 rawSearchOptions; ``Unmanaged`` overrides the serial ones)

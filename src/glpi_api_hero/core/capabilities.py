@@ -29,6 +29,7 @@ ITEM_DEVICE_TYPES: dict[str, tuple[str, ...]] = {
     "Item_DeviceSoundCard": ("Computer",),
     "Item_DeviceControl": ("Computer", "Peripheral", "Phone", "NetworkEquipment", "Printer"),
     "Item_DevicePci": ("*",),
+    "Item_DeviceCase": ("Computer",),
     "Item_DevicePowerSupply": ("Computer", "NetworkEquipment", "Peripheral", "Enclosure", "Phone"),
     "Item_DeviceGeneric": ("*",),
     "Item_DeviceSimcard": ("Computer", "Peripheral", "Phone", "NetworkEquipment", "Printer"),
@@ -380,7 +381,8 @@ class HasDevices(CommonDBTM):
             **params: Extra API parameters (applied to each request).
 
         Returns:
-            The rows. With ``device_itemtype=None`` each row gets the extra key ``device_itemtype``.
+            The rows, each with the extra key ``device_itemtype``. SIM cards are included when no kind is given
+            (``get_sim_cards`` reads the same rows).
 
         Raises:
             ValueError: When ``device_itemtype`` is not an ``Item_Device*`` itemtype of GLPI 10.
@@ -392,7 +394,8 @@ class HasDevices(CommonDBTM):
                 raise ValueError(f"unknown device itemtype: {device_itemtype!r}")
             if device_itemtype not in allowed:
                 raise UnsupportedOperationError(f"{cls._itemtype()} cannot own {device_itemtype}")
-            return cls.get_sub_items(items_id, device_itemtype, **params)
+            return [{**row, "device_itemtype": device_itemtype}
+                    for row in cls.get_sub_items(items_id, device_itemtype, **params)]
         rows: list[dict[str, Any]] = []
         for itemtype in allowed:
             # Copies: the key is added to new dicts, never to the connector rows

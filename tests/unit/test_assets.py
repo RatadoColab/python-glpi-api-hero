@@ -31,7 +31,7 @@ SUB_ITEM_CALLS: list[tuple[str, Callable[[], Any], str]] = [
     ("computer-sim-cards", lambda: assets.Computer.get_sim_cards(9), "Computer/9/Item_DeviceSimcard"),
     ("peripheral-racks", lambda: assets.Peripheral.get_racks(9), "Peripheral/9/Item_Rack"),
     ("printer-tickets", lambda: assets.Printer.get_tickets(9), "Printer/9/Item_Ticket"),
-    ("pdu-notes", lambda: assets.PDU.get_notes(9), "PDU/9/Notepad"),
+    ("monitor-notes", lambda: assets.Monitor.get_notes(9), "Monitor/9/Notepad"),
     ("cable-logs", lambda: assets.Cable.get_logs(9), "Cable/9/Log"),
     ("monitor-reservation", lambda: assets.Monitor.get_reservation_items(9), "Monitor/9/ReservationItem"),
     ("networkequipment-clusters", lambda: assets.NetworkEquipment.get_clusters(9), "NetworkEquipment/9/Item_Cluster"),
@@ -103,3 +103,30 @@ def test_computer_keeps_the_phase_04_names(session: GlpiMock) -> None:
     assert [c["path"] for c in session.captured()] == [
         "Computer/1/Item_OperatingSystem", "Computer/1/Item_SoftwareVersion", "Computer/1/Item_DeviceProcessor",
         "Computer/1/Item_DeviceMemory", "Computer/1/Item_DeviceHardDrive"]
+
+
+# Every capability reader and the sub-itemtype it must request (literals from the GLPI 10 sources)
+READERS = {
+    "get_infocom": "Infocom", "get_network_ports": "NetworkPort", "get_contracts": "Contract_Item",
+    "get_documents": "Document_Item", "get_certificates": "Certificate_Item", "get_domains": "Domain_Item",
+    "get_appliances": "Appliance_Item", "get_clusters": "Item_Cluster", "get_operating_systems": "Item_OperatingSystem",
+    "get_disks": "Item_Disk", "get_sim_cards": "Item_DeviceSimcard", "get_racks": "Item_Rack",
+    "get_remote_managements": "Item_RemoteManagement", "get_reservation_items": "ReservationItem",
+    "get_tickets": "Item_Ticket", "get_notes": "Notepad", "get_logs": "Log",
+    "get_software_versions": "Item_SoftwareVersion", "get_software_licenses": "Item_SoftwareLicense",
+}
+
+
+@pytest.mark.parametrize("method", sorted(READERS))
+def test_every_reader_requests_its_sub_itemtype(session: GlpiMock, method: str) -> None:
+    """Each capability reader (on an asset that has it) asks for the right sub-itemtype."""
+    getattr(assets.Computer, method)(3)
+    assert [c["path"] for c in session.captured()] == [f"Computer/3/{READERS[method]}"]
+
+
+def test_notes_only_where_glpi_enables_the_notepad() -> None:
+    """``$usenotepad`` is set for the physical IT assets and models, not for racks, cables or PDUs."""
+    with_notes = {"Computer", "Monitor", "NetworkEquipment", "Peripheral", "Phone", "Printer", "Software",
+                  "CartridgeItem", "ConsumableItem"}
+    for name in assets.__all__:
+        assert hasattr(getattr(assets, name), "get_notes") is (name in with_notes), name
