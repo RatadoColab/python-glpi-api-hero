@@ -466,3 +466,47 @@ def test_metacriteria_fields_use_their_itemtype(session: GlpiMock) -> None:
     paths = [request["path"] for request in session.captured()]
     assert paths == ["listSearchOptions/Monitor", "search/User"]
     assert session.captured()[1]["query"]["criteria[0][field]"] == "5"
+
+
+def test_update_without_id_is_refused_before_any_request(session: GlpiMock) -> None:
+    """GLPI skips update items without ``id`` and answers 200, so the library refuses them.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.reset_calls()
+    with pytest.raises(BadRequestError, match="id"):
+        _connector().update_items("Location", [{"id": 1, "name": "a"}, {"name": "b"}])
+    with pytest.raises(BadRequestError, match="id"):
+        _connector().update_sub_items("Computer", 3, "Infocom", [{"value": 1}])
+    assert session.captured() == []
+
+
+def test_search_extra_booleans_are_sent_as_lowercase_text(session: GlpiMock) -> None:
+    """Boolean keyword arguments of ``search`` use ``true``/``false``, like the other reads.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.reset_calls()
+    _connector().search("Computer", [], expand_dropdowns=False, is_deleted=True)
+    query = session.captured()[0]["query"]
+    assert (query["expand_dropdowns"], query["is_deleted"]) == ("false", "true")
+
+
+def test_downloaded_file_honors_the_umask(session: GlpiMock, tmp_path: Path) -> None:
+    """The file is not forced to owner-only permissions.
+
+    Args:
+        session: Simulator with an open session.
+        tmp_path: Temporary directory.
+    """
+    import os
+
+    session.override("GET", "Document/9", 200, "bytes", headers={"Content-Disposition": 'attachment; filename="a.txt"'})
+    previous = os.umask(0o022)
+    try:
+        target = _connector().download_document(9, tmp_path)
+    finally:
+        os.umask(previous)
+    assert target.stat().st_mode & 0o777 == 0o644

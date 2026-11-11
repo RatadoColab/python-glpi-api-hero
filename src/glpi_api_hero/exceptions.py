@@ -136,6 +136,14 @@ class PartialOperationError(GlpiError):
         self.results = results
         self.error_code = error_code
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Support pickling (``Exception`` rebuilds from ``args`` only).
+
+        Returns:
+            Reconstruction recipe.
+        """
+        return (_rebuild_partial, (str(self), self.results, self.error_code))
+
     @property
     def failed(self) -> list[OperationResult]:
         """Results of the items that failed.
@@ -144,6 +152,20 @@ class PartialOperationError(GlpiError):
             The failed results.
         """
         return [result for result in self.results if not result.ok]
+
+
+def _rebuild_partial(message: str, results: list[OperationResult], error_code: str | None) -> PartialOperationError:
+    """Rebuild a :class:`PartialOperationError` (used by pickle).
+
+    Args:
+        message: Message.
+        results: Per-item results.
+        error_code: GLPI error key.
+
+    Returns:
+        The exception.
+    """
+    return PartialOperationError(message, results, error_code=error_code)
 
 
 # GLPI 10 error keys (src/Api/API.php, src/Api/APIRest.php) mapped to exception classes
