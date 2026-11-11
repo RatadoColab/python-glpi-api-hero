@@ -374,6 +374,8 @@ SCENARIOS: list[dict[str, Any]] = [
     {"id": "commondbtm-add-many-empty", "since": "v2", "call": "Location.add_many", "args": [[]]},
     {"id": "commondbtm-update-many-empty", "since": "v2", "call": "Location.update_many", "args": [[]]},
     {"id": "commondbtm-delete-many-empty", "since": "v2", "call": "Location.delete_many", "args": [[]]},
+    {"id": "location-getitemsbytype", "since": "v2", "call": "Location.get_items_by_type", "args": [7, "Printer"]},
+    {"id": "user-getemails", "since": "v2", "call": "User.get_emails", "args": [3]},
     {"id": "computer-getconnections", "since": "v2", "call": "Computer.get_connections", "args": [3]},
     {"id": "ticket-getsatisfaction", "since": "v2", "call": "Ticket.get_satisfaction", "args": [10],
      "responses": [{"method": "GET", "path": "Ticket/10/TicketSatisfaction", "status": 200,

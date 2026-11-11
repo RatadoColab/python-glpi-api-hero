@@ -6,44 +6,22 @@ from glpi_api_hero.administration.user import User
 from glpi_api_hero.assets.computer import Computer
 from glpi_api_hero.assets.network_equipment import NetworkEquipment
 from glpi_api_hero.assistance.ticket import Ticket
-from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.common_tree_dropdown import CommonTreeDropdown
+from glpi_api_hero.core.generic_item import GenericItem
 from glpi_api_hero.exceptions import GlpiAPIError
 
 logger = logging.getLogger("glpi_api_hero")
 
 
-class Location(CommonDBTM):
+class Location(CommonTreeDropdown):
     """Locations (Setup > Dropdowns > Locations)."""
 
     # Search option ids of the Location itemtype (GLPI 10 rawSearchOptions)
-    SEARCH_FIELD_COMPLETE_NAME = 1
-    SEARCH_FIELD_NAME = 14
-    SEARCH_FIELD_PARENT = 13
     # "code" is not a core GLPI field: option 11 is the building number; the field of the
     # deployment (e.g. a plugin option) must be set by the application
     SEARCH_FIELD_CODE = 11
 
     # Métodos de busca ################################
-
-    @classmethod
-    def get_by_name(cls, name: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca localizações pelo nome.
-
-        Args:
-            name (str): Nome da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
-
-        Returns:
-            list: Lista de localizações encontradas.
-        """
-        criteria = [
-            {
-                "field": cls.SEARCH_FIELD_NAME,
-                "searchtype": "contains",
-                "value": name,
-            }
-        ]
-        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_code(cls, code: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -65,66 +43,7 @@ class Location(CommonDBTM):
         ]
         return cls.search(criteria, **kwargs)
 
-    @classmethod
-    def get_by_complete_name(cls, complete_name: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca localizações pelo nome completo (caminho hierárquico).
-
-        Args:
-            complete_name (str): Nome completo da localização (ex: 'Sede > Bloco A > Sala 101').
-            **kwargs: Parâmetros extras repassados à busca.
-
-        Returns:
-            list: Lista de localizações encontradas.
-        """
-        criteria = [
-            {
-                "field": cls.SEARCH_FIELD_COMPLETE_NAME,
-                "searchtype": "contains",
-                "value": complete_name,
-            }
-        ]
-        return cls.search(criteria, **kwargs)
-
     # Métodos de hierarquia ################################
-
-    @classmethod
-    def get_children(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna as sub-localizações filhas diretas de uma localização.
-
-        Args:
-            location_id (int): ID da localização pai no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
-
-        Returns:
-            list: Lista de localizações filhas.
-        """
-        criteria = [
-            {
-                "field": cls.SEARCH_FIELD_PARENT,
-                "searchtype": "equals",
-                "value": location_id,
-            }
-        ]
-        return cls.search(criteria, **kwargs)
-
-    @classmethod
-    def get_roots(cls, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna todas as localizações raiz (sem localização pai).
-
-        Args:
-            **kwargs: Parâmetros extras repassados à busca.
-
-        Returns:
-            list: Lista de localizações raiz.
-        """
-        criteria = [
-            {
-                "field": cls.SEARCH_FIELD_PARENT,
-                "searchtype": "equals",
-                "value": 0,
-            }
-        ]
-        return cls.search(criteria, **kwargs)
 
     # Métodos de itens na localização ################################
 
@@ -167,6 +86,26 @@ class Location(CommonDBTM):
             }
         ]
         return NetworkEquipment.search(criteria, **kwargs)
+
+    @classmethod
+    def get_items_by_type(cls, location_id: int, itemtype: str, **params: Any) -> list[dict[str, Any]]:
+        """Search the items of one itemtype placed in a location.
+
+        Works for the itemtypes whose search option 3 is the location (assets and most inventory itemtypes).
+
+        Args:
+            location_id: Location id.
+            itemtype: GLPI itemtype (validated before any request).
+            **params: Extra search parameters.
+
+        Returns:
+            Search rows indexed by field id.
+
+        Raises:
+            ValueError: When ``itemtype`` is not a valid itemtype name.
+        """
+        model = GenericItem.of(itemtype)
+        return model.search([{"field": 3, "searchtype": "equals", "value": location_id}], **params)
 
     @classmethod
     def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:

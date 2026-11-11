@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from glpi_api_hero import assets, management
+from glpi_api_hero import administration, assets, management, tools
 from glpi_api_hero.core import capabilities
 from glpi_api_hero.exceptions import UnsupportedOperationError
 from tests.conftest import GlpiMock
@@ -29,7 +29,10 @@ def _model(name: str) -> Any:
     Returns:
         The class.
     """
-    return getattr(assets, name) if name in assets.__all__ else getattr(management, name)
+    for module in (assets, management, tools, administration):
+        if name in module.__all__:
+            return getattr(module, name)
+    raise AttributeError(name)
 
 
 @pytest.mark.parametrize(("asset", "capability"), CASES, ids=[f"{a}-{c}" for a, c in CASES])
@@ -48,7 +51,7 @@ def test_capability_present_or_absent(asset: str, capability: str) -> None:
 
 def test_matrix_covers_every_asset_and_management_class() -> None:
     """Each exported asset and management model has a row in the matrix."""
-    assert sorted(MATRIX) == sorted(assets.__all__ + management.__all__)
+    assert sorted(MATRIX) == sorted(assets.__all__ + management.__all__ + list(DATA["other_models"]))
 
 
 def test_cable_example_has_no_infocom_free_methods() -> None:

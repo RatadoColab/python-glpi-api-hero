@@ -349,6 +349,28 @@
    "appliance",
    "ticket",
    "notes"
+  ],
+  "Project": [
+   "contract",
+   "document",
+   "notes"
+  ],
+  "Reminder": [
+   "document"
+  ],
+  "KnowbaseItem": [
+   "document"
+  ],
+  "User": [
+   "document",
+   "certificate"
+  ],
+  "Entity": [
+   "document",
+   "notes"
+  ],
+  "Group": [
+   "notes"
   ]
  },
  "device_types": {
@@ -463,6 +485,18 @@
     "contract"
    ],
    "reason": "Supplier.get_contracts is its own method (Contract_Supplier); Supplier is not in contract_types"
+  },
+  "User": {
+   "capabilities": [
+    "ticket"
+   ],
+   "reason": "User.get_tickets is its own search by actor (ITIL base); User is not in ticket_types"
+  },
+  "Group": {
+   "capabilities": [
+    "ticket"
+   ],
+   "reason": "Group.get_tickets is its own search by actor (ITIL base); Group is not in ticket_types"
   }
  },
  "management": [
@@ -479,5 +513,29 @@
   "Domain",
   "Appliance",
   "DatabaseInstance"
- ]
+ ],
+ "other_models": {
+  "Project": [
+   "contract",
+   "document",
+   "notes"
+  ],
+  "Reminder": [
+   "document"
+  ],
+  "KnowbaseItem": [
+   "document"
+  ],
+  "User": [
+   "document",
+   "certificate"
+  ],
+  "Entity": [
+   "document",
+   "notes"
+  ],
+  "Group": [
+   "notes"
+  ]
+ }
 }
