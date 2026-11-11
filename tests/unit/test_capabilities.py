@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from glpi_api_hero import assets
+from glpi_api_hero import assets, management
 from glpi_api_hero.core import capabilities
 from glpi_api_hero.exceptions import UnsupportedOperationError
 from tests.conftest import GlpiMock
@@ -16,20 +16,39 @@ from tests.conftest import GlpiMock
 DATA = json.loads((Path(__file__).parent / "data" / "asset_capabilities.json").read_text(encoding="utf-8"))
 CAPABILITIES: dict[str, dict[str, Any]] = DATA["capabilities"]
 MATRIX: dict[str, list[str]] = DATA["matrix"]
+EXCLUDED: dict[str, dict[str, Any]] = DATA["excluded"]
 CASES = [(asset, cap) for asset in MATRIX for cap in CAPABILITIES]
+
+
+def _model(name: str) -> Any:
+    """Return an asset or management model by name.
+
+    Args:
+        name: Class name.
+
+    Returns:
+        The class.
+    """
+    return getattr(assets, name) if name in assets.__all__ else getattr(management, name)
 
 
 @pytest.mark.parametrize(("asset", "capability"), CASES, ids=[f"{a}-{c}" for a, c in CASES])
 def test_capability_present_or_absent(asset: str, capability: str) -> None:
-    """A capability method exists exactly when GLPI lists the itemtype for it."""
-    model = getattr(assets, asset)
+    """A capability method exists exactly when GLPI lists the itemtype for it (minus the documented exclusions)."""
+    model = _model(asset)
+    if capability in EXCLUDED.get(asset, {}).get("capabilities", []):
+        # Documented exclusion (see the reason in the data file): the mixin is deliberately not applied
+        mixin_methods = {m for base in model.__mro__[1:] if base.__module__.endswith("capabilities")
+                         for m in vars(base)}
+        assert not set(CAPABILITIES[capability]["methods"]) & mixin_methods
+        return
     for method in CAPABILITIES[capability]["methods"]:
         assert hasattr(model, method) is (capability in MATRIX[asset]), f"{asset}.{method}"
 
 
-def test_matrix_covers_every_asset_class() -> None:
-    """Each exported asset has a row in the matrix."""
-    assert sorted(MATRIX) == sorted(assets.__all__)
+def test_matrix_covers_every_asset_and_management_class() -> None:
+    """Each exported asset and management model has a row in the matrix."""
+    assert sorted(MATRIX) == sorted(assets.__all__ + management.__all__)
 
 
 def test_cable_example_has_no_infocom_free_methods() -> None:

@@ -250,7 +250,7 @@ class Connector(abc.ABC):
         raise UnsupportedOperationError(f"{type(self).__name__} does not support document upload")
 
     def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None,
-                          mode: int = 0o600) -> Path:
+                          mode: int = 0o600, overwrite: bool = False) -> Path:
         """Download the file of a Document.
 
         Args:
@@ -258,6 +258,7 @@ class Connector(abc.ABC):
             dirpath: Existing directory where the file is written.
             filename: File name; defaults to the name stored in GLPI.
             mode: Permissions of the new file (owner-only by default; documents may be confidential).
+            overwrite: Replace a file that already exists with the same name.
 
         Returns:
             Path of the written file.

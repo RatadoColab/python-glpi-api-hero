@@ -144,3 +144,13 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
   itemtype can own.
 - The readers that moved to capability mixins take `items_id` as first parameter (positional use is unchanged);
   `Location.SEARCH_FIELD_NETWORK_EQUIPMENT_LOCATION` does not exist (use `NetworkEquipment.SEARCH_FIELD_LOCATION`).
+
+## Management
+
+`glpi_api_hero.management` has `SoftwareLicense`, `Budget`, `Supplier`, `Contact`, `Contract`, `Document`, `Line`,
+`Certificate`, `Datacenter`, `Cluster`, `Domain`, `Appliance` and `DatabaseInstance`.
+
+- `Document.upload(name, filepath)` streams the file; a missing file raises `FileNotFoundError` before any request.
+- `Document.download(id, dirpath, filename=None, *, overwrite=False)` keeps only a plain file name, creates the
+  file owner-only, raises `ValueError` when the result would leave `dirpath` and `FileExistsError` when the file
+  exists and `overwrite` is false (the connector method behaves the same way).

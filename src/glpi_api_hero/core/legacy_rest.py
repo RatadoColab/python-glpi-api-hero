@@ -780,7 +780,7 @@ class LegacyRestConnector(Connector):
         return documents_id
 
     def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None,
-                          mode: int = 0o600) -> Path:
+                          mode: int = 0o600, overwrite: bool = False) -> Path:
         """Download the file of a Document.
 
         Args:
@@ -788,12 +788,15 @@ class LegacyRestConnector(Connector):
             dirpath: Existing directory where the file is written.
             filename: File name; defaults to the name stored in GLPI.
             mode: Permissions of the new file (owner-only by default; documents may be confidential).
+            overwrite: Replace a file that already exists with the same name.
 
         Returns:
             Path of the written file.
 
         Raises:
             ConfigurationError: When ``dirpath`` is not a directory.
+            ValueError: When the final path would not sit directly inside ``dirpath``.
+            FileExistsError: When the file exists and ``overwrite`` is false.
         """
         directory = Path(dirpath)
         if not directory.is_dir():
@@ -809,7 +812,9 @@ class LegacyRestConnector(Connector):
             target = directory / _safe_filename(name, f"document-{documents_id}")
             # Last guard: the final path must sit directly inside the destination directory
             if target.resolve().parent != directory.resolve():
-                target = directory / f"document-{documents_id}"
+                raise ValueError(f"download target outside {directory}: {target.name!r}")
+            if not overwrite and (target.exists() or target.is_symlink()):
+                raise FileExistsError(f"file already exists: {target}")
             # The file is written aside and renamed at the end: a failed transfer never leaves a partial file
             temp_path = str(directory / f".glpi-download-{uuid.uuid4().hex}")
             # Created with ``mode`` (minus the umask); owner-only unless the caller asks for more
@@ -817,7 +822,13 @@ class LegacyRestConnector(Connector):
             with os.fdopen(handle_fd, "wb") as handle:
                 for chunk in response.iter_content(chunk_size=65536):
                     handle.write(chunk)
-            Path(temp_path).replace(target)
+            if overwrite:
+                Path(temp_path).replace(target)
+            else:
+                # A hard link fails when the name appeared meanwhile: nothing is overwritten
+                os.link(temp_path, target)
+            if not overwrite:
+                Path(temp_path).unlink(missing_ok=True)
             temp_path = None
         except requests.exceptions.RequestException as exc:
             self._scrub_exception(exc)
@@ -1003,4 +1014,6 @@ def _safe_filename(name: str | None, default: str) -> str:
     base = (name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
     # Drive prefixes such as "C:" are dropped (they escape the directory on Windows)
     base = PureWindowsPath(base).name
-    return default if base in ("", ".", "..") or "\x00" in base else base
+    # Control characters (NUL, newlines, escapes, DEL) are removed
+    base = "".join(char for char in base if ord(char) >= 32 and ord(char) != 127).strip()
+    return default if base in ("", ".", "..") else base
