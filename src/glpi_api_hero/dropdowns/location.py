@@ -5,8 +5,8 @@ from typing import Any
 from glpi_api_hero.administration.user import User
 from glpi_api_hero.assets.computer import Computer
 from glpi_api_hero.assistance.ticket import Ticket
-from glpi_api_hero.core._legacy_children import NetworkEquipment
 from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.generic_item import GenericItem
 from glpi_api_hero.exceptions import GlpiAPIError
 
 logger = logging.getLogger("glpi_api_hero")
@@ -22,6 +22,8 @@ class Location(CommonDBTM):
     # "code" is not a core GLPI field: option 11 is the building number; the field of the
     # deployment (e.g. a plugin option) must be set by the application
     SEARCH_FIELD_CODE = 11
+    # Search option id of the location in the NetworkEquipment itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_NETWORK_EQUIPMENT_LOCATION = 3
 
     # Métodos de busca ################################
 
@@ -161,12 +163,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": NetworkEquipment.SEARCH_FIELD_LOCATION,
+                "field": cls.SEARCH_FIELD_NETWORK_EQUIPMENT_LOCATION,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return NetworkEquipment.search(criteria, **kwargs)
+        return GenericItem.of("NetworkEquipment").search(criteria, **kwargs)
 
     @classmethod
     def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:

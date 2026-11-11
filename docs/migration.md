@@ -64,7 +64,8 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `Ticket.updateSolution` | `glpi_api_hero.assistance:Ticket.update_solution` |
 | `Ticket.deleteSolution` | `glpi_api_hero.assistance:Ticket.delete_solution` |
 | `Ticket.getSolution` | `glpi_api_hero.assistance:Ticket.get_solutions` |
-| `Ticket.ApprovalSolution` | `glpi_api_hero.assistance:Ticket.approve_solution` |
+| `Ticket.ApprovalSolution` | `glpi_api_hero.assistance:Ticket.approve_solution` (takes the ticket id, not the solution id; adds a follow-up with `add_close`) |
+| (new) | `glpi_api_hero.assistance:Ticket.refuse_solution` (follow-up with `add_reopen`; the comment is required) |
 | `Ticket.addValidation` | `glpi_api_hero.assistance:Ticket.add_validation` |
 | `Ticket.updateValidation` | `glpi_api_hero.assistance:Ticket.update_validation` |
 | `Ticket.deleteValidation` | `glpi_api_hero.assistance:Ticket.delete_validation` |
@@ -73,14 +74,14 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `Ticket.updateTask` | `glpi_api_hero.assistance:Ticket.update_task` |
 | `Ticket.deleteTask` | `glpi_api_hero.assistance:Ticket.delete_task` |
 | `Ticket.getTasks` | `glpi_api_hero.assistance:Ticket.get_tasks` |
-| `Ticket.addItem` | `glpi_api_hero.assistance:Ticket.add_item` |
+| `Ticket.addItem` | `glpi_api_hero.assistance:Ticket.add_item` (now `add_item(ticket_id, itemtype, items_id)`; the asset is no longer overwritten) |
 | `Ticket.deleteItem` | `glpi_api_hero.assistance:Ticket.delete_item` |
 | `Ticket.getItems` | `glpi_api_hero.assistance:Ticket.get_items` |
-| `Ticket.addActor` | `glpi_api_hero.assistance:Ticket.add_actor` |
-| `Ticket.deleteActor` | `glpi_api_hero.assistance:Ticket.delete_actor` |
-| `Ticket.getActors` | `glpi_api_hero.assistance:Ticket.get_actors` |
-| `Ticket.addLinkedTicket` | `glpi_api_hero.assistance:Ticket.add_linked_ticket` |
-| `Ticket.deleteLinkedTicket` | `glpi_api_hero.assistance:Ticket.delete_linked_ticket` |
+| `Ticket.addActor` | `glpi_api_hero.assistance:Ticket.add_actor` (now `add_actor(ticket_id, ActorKind, actor_id, ActorType)`) |
+| `Ticket.deleteActor` | `glpi_api_hero.assistance:Ticket.delete_actor` (now `delete_actor(link_id, ActorKind)`) |
+| `Ticket.getActors` | `glpi_api_hero.assistance:Ticket.get_actors` (users, groups and suppliers, each row with a `kind` key) |
+| `Ticket.addLinkedTicket` | `glpi_api_hero.assistance:Ticket.link_ticket` (now `link_ticket(ticket_id, tickets_id, LinkType)`) |
+| `Ticket.deleteLinkedTicket` | `glpi_api_hero.assistance:Ticket.unlink` (now `unlink("Ticket_Ticket", link_id)`) |
 | `Ticket.getLinkedTickets` | `glpi_api_hero.assistance:Ticket.get_linked_tickets` |
 | `Group.REQUESTER`, `Group.ASSIGNED`, `Group.OBSERVER` | `glpi_api_hero.core.constants:ActorType` |
 | `User.REQUESTER`, `User.ASSIGNED`, `User.OBSERVER` | `glpi_api_hero.core.constants:ActorType` |
@@ -99,8 +100,8 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `ApiConnectionError` | `glpi_api_hero.exceptions:GlpiConnectionError` |
 | `ApiOperationError` | `glpi_api_hero.exceptions:GlpiAPIError (and its subclasses)` |
 | `ApiRateLimitError` | `glpi_api_hero.exceptions:RateLimitError` |
-| `Actor, Item, Task, LinkedTicket, ITILFollowup, ITILSolution, TicketValidation` | removed (provisional private classes in `core/_legacy_children.py`; typed replacements in phase 05) |
-| `Cluster, NetworkEquipment (stubs)` | removed (provisional private classes; typed replacements in phases 06 to 08) |
+| `Actor, Item, Task, LinkedTicket, ITILFollowup, ITILSolution, TicketValidation` | removed (sub-items are methods of `Ticket`, `Change` and `Problem`; any other sub-item is reachable with `GenericItem.of("<itemtype>")`) |
+| `Cluster, NetworkEquipment (stubs)` | removed (typed replacements in phases 06 and 07; meanwhile `GenericItem.of("Cluster")`) |
 | `TicketDashboard` | removed from the package (now an example: `examples/ticket_dashboard/ticket_dashboard.py`) |
 
 ## Behavior changes already in effect
@@ -111,3 +112,19 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 - Failed bulk writes raise `PartialOperationError` with the per-item results.
 
 The distribution name is now `glpi-api-hero` (`pip install glpi-api-hero`); the import name is still `glpi_api_hero`.
+
+## ITIL objects
+
+`Ticket`, `Change` and `Problem` (`glpi_api_hero.assistance`) share the sub-item methods of
+`glpi_api_hero.core.common_itil.CommonITILObject`: follow-ups, solutions (`approve_solution`,
+`refuse_solution`), tasks, validations (not on `Problem`: `UnsupportedOperationError`), actors, linked assets,
+costs, documents, links between ITIL objects (`link_ticket`, `link_problem`, `link_change`, `unlink`) and the
+searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `get_by_group`).
+
+- The first argument of every method is the id of the ITIL object; the sub-item methods take the id of the
+  sub-item (`update_task(task_id, data)`).
+- Sub-items are now attached with the column GLPI expects (`tickets_id`, `changes_id`, `problems_id`,
+  `tickets_id_1`...). In 0.1 several helpers sent `items_id`/`itemtype` and the request was ignored or refused.
+- Input dicts are never modified.
+- `ActorKind` (`user`, `group`, `supplier`) and `LinkType` (`LINKED`, `DUPLICATE`, `CHILD`, `PARENT`) live in
+  `glpi_api_hero.core.constants`, next to `ActorType`.

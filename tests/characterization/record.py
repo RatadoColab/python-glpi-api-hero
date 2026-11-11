@@ -68,7 +68,6 @@ class _FrozenDate(_dt.date):
 CLASS_MODULES = (
     "glpi_api_hero",
     "glpi_api_hero.core",
-    "glpi_api_hero.core._legacy_children",
     "glpi_api_hero.administration",
     "glpi_api_hero.assets",
     "glpi_api_hero.assistance",

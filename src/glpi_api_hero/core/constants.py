@@ -1,11 +1,28 @@
 """Constants shared by the models."""
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class ActorType(IntEnum):
-    """Role of a user or group in a ticket (value of the GLPI ``type`` field)."""
+    """Role of a user or group in an ITIL object (value of the GLPI ``type`` field)."""
 
     REQUESTER = 1
     ASSIGNED = 2
     OBSERVER = 3
+
+
+class ActorKind(str, Enum):
+    """Kind of actor of an ITIL object (``StrEnum`` needs Python 3.11 and the minimum is 3.10)."""
+
+    USER = "user"
+    GROUP = "group"
+    SUPPLIER = "supplier"
+
+
+class LinkType(IntEnum):
+    """Relation between two tickets (value of the ``link`` field of ``Ticket_Ticket``)."""
+
+    LINKED = 1
+    DUPLICATE = 2
+    CHILD = 3
+    PARENT = 4

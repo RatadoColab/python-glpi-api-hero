@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from glpi_api_hero.core.common_dbtm import CommonDBTM
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.session import Glpi
 
@@ -117,3 +118,9 @@ class ApiCommunication:
             The result of ``fn``.
         """
         return fn(*args, **kwargs)
+
+
+class Actor(CommonDBTM):
+    """Former ticket actor model, kept to pin how ``_glpi_name`` renames the itemtype."""
+
+    _glpi_name = "Ticket_User"
