@@ -73,7 +73,7 @@ CLASS_MODULES = (
     "glpi_api_hero.assets",
     "glpi_api_hero.assistance",
     "glpi_api_hero.dropdowns",
-    "glpi_api_hero.ticket_dashboard",
+    "examples.ticket_dashboard.ticket_dashboard",
     "tests.characterization.legacy_session",
 )
 
@@ -171,7 +171,7 @@ def _open_session(kind: str | None) -> None:
 def _frozen_clock() -> Iterator[None]:
     """Freeze ``date``/``datetime`` in the modules that read the clock."""
     with contextlib.ExitStack() as stack:
-        for module_name in ("glpi_api_hero.ticket_dashboard",):
+        for module_name in ("examples.ticket_dashboard.ticket_dashboard",):
             # Modules may move during the refactoring; patch only what exists
             try:
                 module = importlib.import_module(module_name)

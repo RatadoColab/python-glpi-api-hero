@@ -1,0 +1,3 @@
+glpi-api-hero
+plotly>=5.0.0
+kaleido>=1.0.0

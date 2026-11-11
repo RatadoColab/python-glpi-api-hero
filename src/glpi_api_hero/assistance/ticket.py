@@ -15,6 +15,17 @@ from glpi_api_hero.core.common_dbtm import CommonDBTM
 class Ticket(CommonDBTM):
     """Tickets (Assistance > Tickets) with their provisional sub-item methods."""
 
+    # Search option ids of the Ticket itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_REQUESTER = 4
+    SEARCH_FIELD_ASSIGNED = 5
+    SEARCH_FIELD_OBSERVER = 66
+    SEARCH_FIELD_REQUESTER_GROUP = 71
+    SEARCH_FIELD_ASSIGNED_GROUP = 8
+    SEARCH_FIELD_OBSERVER_GROUP = 65
+    SEARCH_FIELD_ITEM_TYPE = 131
+    SEARCH_FIELD_ITEM_ID = 13
+    SEARCH_FIELD_LOCATION = 83
+
     # Métodos FollowUp ################################
 
     @classmethod
@@ -31,8 +42,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID do acompanhamento criado.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return ITILFollowup.add(data)
 
@@ -49,7 +60,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        data["id"] = followup_id
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "id": followup_id}
 
         return ITILFollowup.update(followup_id, data)
 
@@ -104,8 +116,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID da solução criada.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return ITILSolution.add(data)
 
@@ -122,7 +134,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        data["id"] = solution_id
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "id": solution_id}
 
         return ITILSolution.update(solution_id, data)
 
@@ -177,8 +190,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID da validação criada.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return TicketValidation.add(data)
 
@@ -195,7 +208,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        data["id"] = validation_id
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "id": validation_id}
 
         return TicketValidation.update(validation_id, data)
 
@@ -242,8 +256,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID da tarefa criada.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return Task.add(data)
 
@@ -261,7 +275,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação retornado pela API.
         """
-        data["id"] = task_id
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "id": task_id}
 
         return Task.update(task_id, data)
 
@@ -305,8 +320,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID do vínculo criado.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return Item.add(data)
 
@@ -351,8 +366,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID do ator criado.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return Actor.add(data)
 
@@ -397,8 +412,8 @@ class Ticket(CommonDBTM):
         Returns:
             list: Resultado da operação contendo o ID do vínculo criado.
         """
-        data["items_id"] = ticket_id
-        data["itemtype"] = cls.__name__
+        # Work on a copy: the caller's dict is never modified
+        data = {**data, "items_id": ticket_id, "itemtype": cls.__name__}
 
         return LinkedTicket.add(data)
 

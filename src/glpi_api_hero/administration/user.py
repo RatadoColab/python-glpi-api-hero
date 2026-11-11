@@ -1,12 +1,17 @@
 from typing import Any
 
+from glpi_api_hero.assistance.ticket import Ticket
 from glpi_api_hero.core.common_dbtm import CommonDBTM
 from glpi_api_hero.core.constants import ActorType
-from glpi_api_hero.core.session import Glpi
 
 
 class User(CommonDBTM):
     """GLPI users (Administration > Users)."""
+
+    # Search option ids of the User itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_LOGIN = 1
+    SEARCH_FIELD_EMAIL = 5
+    SEARCH_FIELD_LOCATION = 3
 
     @classmethod
     def get_profiles(cls, user_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -35,11 +40,11 @@ class User(CommonDBTM):
         """
         # Mapeamento actor_type → field ID na busca do GLPI
         field_map = {
-            ActorType.REQUESTER: 4,  # campo "Requester" na busca de Ticket
-            ActorType.ASSIGNED: 5,  # campo "Assigned to"
-            ActorType.OBSERVER: 66,  # campo "Observer"
+            ActorType.REQUESTER: Ticket.SEARCH_FIELD_REQUESTER,
+            ActorType.ASSIGNED: Ticket.SEARCH_FIELD_ASSIGNED,
+            ActorType.OBSERVER: Ticket.SEARCH_FIELD_OBSERVER,
         }
-        field_id = field_map.get(actor_type, 4)
+        field_id = field_map.get(actor_type, Ticket.SEARCH_FIELD_REQUESTER)
 
         criteria = [
             {
@@ -48,7 +53,7 @@ class User(CommonDBTM):
                 "value": user_id,
             }
         ]
-        return Glpi.connector().search("Ticket", criteria, **kwargs)
+        return Ticket.search(criteria, **kwargs)
 
     @classmethod
     def get_by_username(cls, username: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -63,12 +68,12 @@ class User(CommonDBTM):
         """
         criteria = [
             {
-                "field": 1,  # campo "Login"
+                "field": cls.SEARCH_FIELD_LOGIN,  # campo "Login"
                 "searchtype": "equals",
                 "value": username,
             }
         ]
-        return Glpi.connector().search("User", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_email(cls, email: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -83,9 +88,9 @@ class User(CommonDBTM):
         """
         criteria = [
             {
-                "field": 5,  # campo "Email"
+                "field": cls.SEARCH_FIELD_EMAIL,  # campo "Email"
                 "searchtype": "equals",
                 "value": email,
             }
         ]
-        return Glpi.connector().search("User", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)

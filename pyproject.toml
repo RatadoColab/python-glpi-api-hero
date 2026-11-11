@@ -32,7 +32,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dashboard = ["plotly>=5.0.0", "kaleido>=1.0.0"]
 dev = ["pytest>=8.0", "responses>=0.25", "ruff>=0.6", "build>=1.2", "pip-audit>=2.7"]
 
 [project.urls]
@@ -62,8 +61,8 @@ line-length = 120
 select = ["E", "F", "W", "I", "B", "UP", "N"]
 
 [tool.ruff.lint.per-file-ignores]
-# Dashboard moves to examples/ in phase 04.2
-"src/glpi_api_hero/ticket_dashboard.py" = ["B904", "B905"]
+# Dashboard example keeps its original error handling
+"examples/ticket_dashboard/ticket_dashboard.py" = ["B904", "B905"]
 # Former session API kept for the characterization tests only (phase 04.1, D32)
 "tests/characterization/legacy_session.py" = ["N802"]
 # Examples extend sys.path before importing the library from a checkout
