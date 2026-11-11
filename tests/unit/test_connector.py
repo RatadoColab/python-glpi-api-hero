@@ -239,6 +239,7 @@ def test_download_document_stays_in_directory(session: GlpiMock, tmp_path: Path)
 @pytest.mark.parametrize(("header", "expected"), [
     ("attachment; filename=\"..\"", "document-9"),
     ("attachment; filename=\".\"", "document-9"),
+    ("attachment; filename=\"C:evil.txt\"", "evil.txt"),
     ("attachment; filename=\"a\\\\b\\\\..\\\\c.txt\"", "c.txt"),
     ("attachment; filename=\"d\\'Ar\\\"t.txt\"", "d'Ar\"t.txt"),
     ("attachment; filename=\"caf\xe9.txt\"; filename*=utf-8''caf%C3%A9%3B%27x.txt", "caf\xe9;'x.txt"),
