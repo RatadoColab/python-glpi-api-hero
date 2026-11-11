@@ -22,7 +22,13 @@ from typing import Any, ClassVar
 from glpi_api_hero.core.connector import Connector
 from glpi_api_hero.core.session import Glpi
 from glpi_api_hero.core.types import OperationResult
-from glpi_api_hero.exceptions import BadRequestError, PartialOperationError
+from glpi_api_hero.exceptions import (
+    BadRequestError,
+    GlpiError,
+    NotFoundError,
+    PartialOperationError,
+    PermissionDeniedError,
+)
 
 
 class CommonDBTM:
@@ -214,9 +220,12 @@ class CommonDBTM:
 
         Raises:
             NotFoundError: When the item does not exist.
+            PermissionDeniedError: When the item cannot be read by the active profile.
+            BadRequestError: When the item exists but GLPI refused the change.
         """
         connector = cls._connector()
-        _single(lambda: connector.update_items(cls._itemtype(), [{**data, "id": items_id}]), cls._itemtype(), items_id)
+        _single(connector, lambda: connector.update_items(cls._itemtype(), [{**data, "id": items_id}]),
+                cls._itemtype(), items_id)
 
     @classmethod
     def update_many(cls, items: Sequence[dict[str, Any]]) -> None:
@@ -243,9 +252,12 @@ class CommonDBTM:
 
         Raises:
             NotFoundError: When the item does not exist.
+            PermissionDeniedError: When the item cannot be read by the active profile.
+            BadRequestError: When the item exists but GLPI refused the deletion.
         """
         connector = cls._connector()
-        _single(lambda: connector.delete_items(cls._itemtype(), [items_id], force_purge=force_purge, history=history),
+        _single(connector,
+                lambda: connector.delete_items(cls._itemtype(), [items_id], force_purge=force_purge, history=history),
                 cls._itemtype(), items_id)
 
     @classmethod
@@ -289,9 +301,15 @@ class CommonDBTM:
             sub_itemtype: Child itemtype.
             sub_id: Sub-item id.
             data: Field values to change (not modified).
+
+        Raises:
+            NotFoundError: When the sub-item does not exist.
+            PermissionDeniedError: When the sub-item cannot be read by the active profile.
+            BadRequestError: When the sub-item exists but GLPI refused the operation.
         """
         connector = cls._connector()
-        _single(lambda: connector.update_sub_items(cls._itemtype(), items_id, sub_itemtype, [{**data, "id": sub_id}]),
+        _single(connector,
+                lambda: connector.update_sub_items(cls._itemtype(), items_id, sub_itemtype, [{**data, "id": sub_id}]),
                 sub_itemtype, sub_id)
 
     @classmethod
@@ -302,9 +320,14 @@ class CommonDBTM:
             items_id: Parent id.
             sub_itemtype: Child itemtype.
             sub_id: Sub-item id.
+
+        Raises:
+            NotFoundError: When the sub-item does not exist.
+            PermissionDeniedError: When the sub-item cannot be read by the active profile.
+            BadRequestError: When the sub-item exists but GLPI refused the operation.
         """
         connector = cls._connector()
-        _single(lambda: connector.delete_sub_items(cls._itemtype(), items_id, sub_itemtype, [sub_id]),
+        _single(connector, lambda: connector.delete_sub_items(cls._itemtype(), items_id, sub_itemtype, [sub_id]),
                 sub_itemtype, sub_id)
 
     # ------------------------------------------------------------------ helpers
@@ -356,13 +379,15 @@ def _failure(write: Callable[[], list[OperationResult]]) -> tuple[list[Operation
     return results, "", None
 
 
-def _single(write: Callable[[], list[OperationResult]], itemtype: str, items_id: int) -> list[OperationResult]:
+def _single(connector: Connector, write: Callable[[], list[OperationResult]], itemtype: str,
+            items_id: int) -> list[OperationResult]:
     """Run a one-item update or delete and turn a per-item failure into one error.
 
     GLPI only explains per-item failures with translated text, so the item is
     read back to tell a missing item from a refused operation.
 
     Args:
+        connector: Connector that performed the write (also used for the read-back).
         write: The connector call.
         itemtype: Itemtype of the written item.
         items_id: Id of the written item.
@@ -373,13 +398,19 @@ def _single(write: Callable[[], list[OperationResult]], itemtype: str, items_id:
     Raises:
         NotFoundError: When the item does not exist.
         PermissionDeniedError: When the item cannot be read either.
-        BadRequestError: When the item exists but GLPI refused the operation (rights, rules...).
+        BadRequestError: When the item exists but GLPI refused the operation (rights, rules...),
+            also when the read-back itself fails (network, rate limit): the refusal is what is reported.
     """
     results, message, error_code = _failure(write)
     if not message:
         return results
-    # A missing (or unreadable) item raises NotFoundError (or PermissionDeniedError) here
-    Glpi.connector().get_item(itemtype, items_id)
+    try:
+        # A missing (or unreadable) item raises NotFoundError (or PermissionDeniedError) here
+        connector.get_item(itemtype, items_id)
+    except (NotFoundError, PermissionDeniedError):
+        raise
+    except GlpiError as exc:
+        raise BadRequestError(message, error_code=error_code) from exc
     raise BadRequestError(message, error_code=error_code)
 
 

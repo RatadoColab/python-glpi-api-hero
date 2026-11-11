@@ -220,6 +220,49 @@ def test_delete_missing_or_refused(session: GlpiMock) -> None:
     assert type(info.value) is BadRequestError
 
 
+def test_failed_read_back_keeps_the_original_refusal(session: GlpiMock) -> None:
+    """A rate limit or network error on the read-back does not replace the refusal GLPI gave.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.override("PUT", "Location", 400, ["ERROR_GLPI_UPDATE", [{"8": False, "message": "refused"}]])
+    session.override("GET", "Location/8", 429, ["ERROR_RATE_LIMIT", "slow down"])
+    with pytest.raises(BadRequestError, match="refused"):
+        Location.update(8, {"name": "x"})
+    session.override("GET", "Location/8", error="connection")
+    with pytest.raises(BadRequestError, match="refused"):
+        Location.update(8, {"name": "x"})
+
+
+def test_read_back_uses_the_connector_that_wrote(session: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The read-back goes through the connector of the write, not through whatever the session holds later.
+
+    Args:
+        session: Simulator with an open session.
+        monkeypatch: Pytest monkeypatch.
+    """
+    from glpi_api_hero import Glpi
+
+    connector = Glpi.connector()
+    session.override("DELETE", "Location", 400, ["ERROR_GLPI_DELETE", [{"9": False, "message": "gone"}]])
+    session.override("GET", "Location/9", 404, ["ERROR_ITEM_NOT_FOUND", "gone"])
+    calls: list[object] = []
+    original = connector.get_item
+
+    def spy(*args: object, **kwargs: object) -> object:
+        """Record that the writing connector served the read-back."""
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(connector, "get_item", spy)
+    monkeypatch.setattr(Glpi, "connector", staticmethod(lambda: (_ for _ in ()).throw(AssertionError("global used"))))
+    with pytest.raises(NotFoundError):
+        connector_class = type("Location", (CommonDBTM,), {"_connector": classmethod(lambda cls: connector)})
+        connector_class.delete(9)
+    assert calls
+
+
 def test_delete_many(session: GlpiMock) -> None:
     """``delete_many`` sends every id; partial failures raise.
 

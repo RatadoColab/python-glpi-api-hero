@@ -5,10 +5,15 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import re
+import tempfile
 from collections.abc import Iterable, Sequence
+from email.message import Message
+from email.utils import decode_rfc2231
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import requests
 
@@ -128,10 +133,51 @@ class LegacyRestConnector(Connector):
         Returns:
             The text with secrets replaced by ``***``.
         """
-        for secret in (self._app_token, self._user_token, self._password, self._session_token):
-            if secret:
-                text = text.replace(secret, "***")
+        for secret in self._secrets():
+            text = text.replace(secret, "***")
         return text
+
+    def _secrets(self) -> list[str]:
+        """List the secrets (and their printable variants) to keep out of messages.
+
+        Returns:
+            Secrets, the Basic credentials encoding, and the ``repr()`` escaped form of each
+            value (what an ``InvalidHeader`` message shows for tokens with whitespace).
+        """
+        raw = [self._app_token, self._user_token, self._password, self._session_token]
+        if self._username:
+            raw.append(base64.b64encode(f"{self._username}:{self._password}".encode()).decode())
+        forms: list[str] = []
+        for secret in raw:
+            if not secret:
+                continue
+            for form in (secret, secret.strip(), repr(secret)[1:-1]):
+                if form and form not in forms:
+                    forms.append(form)
+        # Longest first, so a secret that contains another one is fully masked
+        return sorted(forms, key=len, reverse=True)
+
+    def _scrub_exception(self, exc: requests.exceptions.RequestException) -> None:
+        """Mask credentials in a ``requests`` exception before it is chained.
+
+        Args:
+            exc: The exception raised by ``requests``.
+        """
+        exc.request = self._scrubbed(exc.request)
+        if exc.response is not None:
+            self._scrub_response(exc.response)
+        # The raw message may show header values (e.g. InvalidHeader)
+        exc.args = tuple(self._redact(arg) if isinstance(arg, str) else arg for arg in exc.args)
+
+    def _scrub_response(self, response: requests.Response) -> None:
+        """Mask the credentials of a response's request and of its redirect history.
+
+        Args:
+            response: HTTP response (modified in place).
+        """
+        response.request = self._scrubbed(response.request)
+        for previous in response.history:
+            previous.request = self._scrubbed(previous.request)
 
     @staticmethod
     def _scrubbed(request: Any) -> Any:
@@ -188,11 +234,12 @@ class LegacyRestConnector(Connector):
         """
         url = self._endpoint(*parts)
         try:
-            # verify is passed explicitly so REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE cannot override it
+            # verify is passed on every call: False and a bundle path are never replaced by the environment,
+            # while True still honors REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE (requests behavior)
             response = self._http.request(method, url, params=params, json=body, headers=headers, files=files,
                                           data=data, timeout=self.timeout, verify=self._verify, stream=stream)
         except requests.exceptions.RequestException as exc:
-            exc.request = self._scrubbed(exc.request)
+            self._scrub_exception(exc)
             raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
         logger.debug("%s %s -> %s", method, "/".join(str(p) for p in parts), response.status_code)
         if "Content-Range" in response.headers:
@@ -210,7 +257,7 @@ class LegacyRestConnector(Connector):
         Returns:
             The exception to raise.
         """
-        response.request = self._scrubbed(response.request)
+        self._scrub_response(response)
         error_code: str | None = None
         detail: Any = None
         try:
@@ -246,10 +293,10 @@ class LegacyRestConnector(Connector):
             **kwargs: Arguments of :meth:`_send`.
 
         Returns:
-            The decoded JSON body, the raw text when it is not JSON, or ``None`` when empty.
+            The decoded JSON body, or ``None`` when the body is empty.
 
         Raises:
-            GlpiAPIError: On error statuses.
+            GlpiAPIError: On error statuses, or when the body is not JSON.
             PartialOperationError: On bulk writes where items failed.
         """
         response = self._send(method, parts, **kwargs)
@@ -274,7 +321,7 @@ class LegacyRestConnector(Connector):
         try:
             return response.json()
         except ValueError as exc:
-            response.request = self._scrubbed(response.request)
+            self._scrub_response(response)
             message = self._redact(f"invalid JSON answer: {response.text[:200]}")
             raise GlpiAPIError(message, status_code=response.status_code, response=response) from exc
 
@@ -709,7 +756,11 @@ class LegacyRestConnector(Connector):
         errors = [str(upload["error"]) for upload in uploads if isinstance(upload, dict) and upload.get("error")]
         if errors:
             # GLPI created the Document without its file: purge it before reporting the failure
-            self.delete_items("Document", [documents_id], force_purge=True)
+            try:
+                self.delete_items("Document", [documents_id], force_purge=True)
+            except (GlpiAPIError, GlpiConnectionError, PartialOperationError):
+                # The upload error is the one to report
+                logger.warning("could not purge Document %s left without its file", documents_id)
             raise BadRequestError(self._redact("; ".join(errors)), status_code=201,
                                   error_code="ERROR_GLPI_INVALID_DOCUMENT")
         return documents_id
@@ -733,17 +784,27 @@ class LegacyRestConnector(Connector):
             raise ConfigurationError(f"directory not found: {directory}")
         response = self._send("GET", ["Document", documents_id], headers={"Accept": "application/octet-stream"},
                               stream=True)
+        temp_path: str | None = None
         try:
             if response.status_code != 200:
                 raise self._error(response)
             name = filename or _disposition_filename(response.headers.get("Content-Disposition"))
-            # Only the base name is used, so a stored name cannot escape the directory
-            target = directory / (Path(name).name if name else f"document-{documents_id}")
-            with target.open("wb") as handle:
+            # Only a plain file name is used, so a stored name cannot escape the directory
+            target = directory / _safe_filename(name, f"document-{documents_id}")
+            # The file is written aside and renamed at the end: a failed transfer never leaves a partial file
+            handle_fd, temp_path = tempfile.mkstemp(dir=directory, prefix=".glpi-download-")
+            with os.fdopen(handle_fd, "wb") as handle:
                 for chunk in response.iter_content(chunk_size=65536):
                     handle.write(chunk)
+            Path(temp_path).replace(target)
+            temp_path = None
+        except requests.exceptions.RequestException as exc:
+            self._scrub_exception(exc)
+            raise GlpiConnectionError(self._redact(f"communication error: {exc}")) from exc
         finally:
             response.close()
+            if temp_path is not None:
+                Path(temp_path).unlink(missing_ok=True)
         return target
 
 
@@ -859,12 +920,16 @@ def _validate_verify(verify: Any) -> bool | str:
     if isinstance(verify, bool):
         return verify
     if isinstance(verify, (str, Path)) and str(verify) and Path(verify).exists():
-        return str(verify)
+        # Absolute, so a later chdir cannot change which bundle is used
+        return str(Path(verify).resolve())
     raise ConfigurationError(f"verify_tls must be True, False or an existing CA bundle path, got {verify!r}")
 
 
 def _disposition_filename(header: str | None) -> str | None:
     """Extract the file name of a ``Content-Disposition`` header.
+
+    The RFC 5987 form (``filename*=utf-8''...``), which GLPI sends next to the
+    Latin-1 ``filename=``, wins; otherwise the quoted form is decoded.
 
     Args:
         header: Header value.
@@ -874,5 +939,30 @@ def _disposition_filename(header: str | None) -> str | None:
     """
     if not header:
         return None
-    match = re.search(r'filename="?([^";]+)"?', header)
-    return match.group(1) if match else None
+    extended = re.search(r"filename\*\s*=\s*([^;]+)", header)
+    if extended:
+        charset, _language, encoded = decode_rfc2231(extended.group(1).strip())
+        try:
+            return unquote(encoded, encoding=charset or "utf-8", errors="strict") or None
+        except (LookupError, UnicodeDecodeError):
+            pass
+    message = Message()
+    message["Content-Disposition"] = header
+    name = message.get_filename()
+    # The email parser unescapes ``\\`` and ``\"``; PHP addslashes also escapes the apostrophe
+    return re.sub(r"\\'", "'", name) if name else None
+
+
+def _safe_filename(name: str | None, default: str) -> str:
+    """Reduce a server-provided name to a plain file name.
+
+    Args:
+        name: Name sent by the server (may contain directories or be ``.``/``..``).
+        default: Name used when ``name`` leaves nothing usable.
+
+    Returns:
+        A name that cannot leave the destination directory.
+    """
+    # Both separators are cut, whatever the server platform
+    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    return default if base in ("", ".", "..") else base
