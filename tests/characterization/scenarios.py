@@ -396,9 +396,13 @@ _D22 = "D22: CommonDBTM.add takes one dict; a non-dict payload fails before any 
 _D34 = "D34: Computer.get_disks queries the real sub-itemtype Item_Disk (ComputerDisk does not exist in GLPI 10)"
 _D35 = "D35: Location searches use the rawSearchOptions ids (name 14, completename 1) and User location 3"
 _D36 = "D36: the dashboard SLA field is time_to_resolve (18); 155 is time_to_own"
+_D39 = "D39: Group.delete_user reads the whole membership (range 0-9999); Group.get_by_name uses the name (14)"
 _D37 = "D37: Location.update_from_list warns through logging instead of print()"
 
 V2: dict[str, dict[str, Any]] = {
+    "group-getbyname": {"requests_change": _D39, "fixed": _D39},
+    "group-deleteuser-not-member": {"requests_change": _D39},
+    "group-deleteuser-empty-group": {"requests_change": _D39},
     "computer-getdisks": {"requests_change": _D34, "fixed": _D34},
     "location-getbyname": {"requests_change": _D35, "fixed": _D35},
     "location-getbycompletename": {"requests_change": _D35, "fixed": _D35},
@@ -446,7 +450,7 @@ V2: dict[str, dict[str, Any]] = {
     "commondbtm-field-id": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
     "commondbtm-field-uid": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
     "user-getbyusername-429": {"known_bug": None, "fixed": "mapped to RateLimitError"},
-    "group-deleteuser": {"known_bug": None, "requests_change": _D21, "fixed": _D21},
+    "group-deleteuser": {"known_bug": None, "requests_change": f"{_D21}; {_D39}", "fixed": _D21},
     "ticket-approvalsolution": {"requests_change": _D22},
 }
 

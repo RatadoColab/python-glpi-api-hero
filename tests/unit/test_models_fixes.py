@@ -111,3 +111,27 @@ def test_search_field_constants_match_glpi_10() -> None:
     ids = (Location.SEARCH_FIELD_COMPLETE_NAME, Location.SEARCH_FIELD_NAME, Location.SEARCH_FIELD_PARENT)
     assert ids == (1, 14, 13)
     assert User.SEARCH_FIELD_LOCATION == Computer.SEARCH_FIELD_LOCATION == 3
+
+
+def test_add_from_list_keeps_the_location_and_entity_of_the_record(session: GlpiMock) -> None:
+    """Defaults apply only when the record (or the mapper) does not set the parent and the entity.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.reset_calls()
+    Location.add_from_list([{"name": "A", "locations_id": 12, "entities_id": 5}, {"name": "B"}], 3, 4)
+    body = session.captured()[0]["body"]["input"]
+    assert body == [{"name": "A", "locations_id": 12, "entities_id": 5},
+                    {"name": "B", "locations_id": 3, "entities_id": 4}]
+
+
+def test_group_delete_user_reads_the_whole_membership(session: GlpiMock) -> None:
+    """The member lookup asks for a wide range, so members beyond the first page are found.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    session.reset_calls()
+    Group.delete_user(5, 7)
+    assert session.captured()[0]["query"]["range"] == "0-9999"

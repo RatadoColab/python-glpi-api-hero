@@ -1,3 +1,3 @@
-glpi-api-hero
+# Install the library from this checkout first: pip install -e .
 plotly>=5.0.0
 kaleido>=1.0.0
