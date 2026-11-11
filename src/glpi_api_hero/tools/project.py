@@ -83,6 +83,15 @@ class Project(HasContracts, HasDocuments, HasNotes, HasLogs):
         return cls._for("ProjectTeam").add({"projects_id": project_id, "itemtype": itemtype, "items_id": items_id})
 
     @classmethod
+    def delete_team_member(cls, team_id: int) -> None:
+        """Remove a member from the project team.
+
+        Args:
+            team_id: Id of the ``ProjectTeam`` row (not the id of the user or group).
+        """
+        cls._for("ProjectTeam").delete(team_id)
+
+    @classmethod
     def get_items(cls, project_id: int, **params: Any) -> list[dict[str, Any]]:
         """Return the items linked to the project (``Item_Project``).
 

@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, ClassVar
 
 from glpi_api_hero.administration.user import User
 from glpi_api_hero.assets.computer import Computer
@@ -20,6 +20,8 @@ class Location(CommonTreeDropdown):
     # "code" is not a core GLPI field: option 11 is the building number; the field of the
     # deployment (e.g. a plugin option) must be set by the application
     SEARCH_FIELD_CODE = 11
+    # Search option of the location where it is not 3 (GLPI 10 rawSearchOptions)
+    _ITEMTYPE_LOCATION_FIELDS: ClassVar[dict[str, int]] = {"Ticket": 83}
 
     # Métodos de busca ################################
 
@@ -42,8 +44,6 @@ class Location(CommonTreeDropdown):
             }
         ]
         return cls.search(criteria, **kwargs)
-
-    # Métodos de hierarquia ################################
 
     # Métodos de itens na localização ################################
 
@@ -91,7 +91,8 @@ class Location(CommonTreeDropdown):
     def get_items_by_type(cls, location_id: int, itemtype: str, **params: Any) -> list[dict[str, Any]]:
         """Search the items of one itemtype placed in a location.
 
-        Works for the itemtypes whose search option 3 is the location (assets and most inventory itemtypes).
+        Option 3 is the location on assets and most inventory itemtypes; ``Ticket`` uses 83. Other itemtypes may
+        number it differently (option 3 of Project or Entity is not the location).
 
         Args:
             location_id: Location id.
@@ -105,7 +106,8 @@ class Location(CommonTreeDropdown):
             ValueError: When ``itemtype`` is not a valid itemtype name.
         """
         model = GenericItem.of(itemtype)
-        return model.search([{"field": 3, "searchtype": "equals", "value": location_id}], **params)
+        field = cls._ITEMTYPE_LOCATION_FIELDS.get(itemtype, 3)
+        return model.search([{"field": field, "searchtype": "equals", "value": location_id}], **params)
 
     @classmethod
     def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:

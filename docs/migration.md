@@ -161,7 +161,9 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
 - New models: `tools` (`Project`, `Reminder`, `RSSFeed`, `KnowbaseItem`, `ReservationItem`, `SavedSearch`),
   `administration` (`Entity`, `Profile`), `dropdowns` (`ITILCategory`, `State`, `Manufacturer`) and `assistance`
   (`TicketRecurrent`, `RecurrentChange`).
-- `Location`, `Group`, `Entity`, `ITILCategory` and `State` share `CommonTreeDropdown`: `get_by_name`,
-  `get_by_complete_name`, `get_children` and `get_roots` (search options 14, 1 and 13).
+- `Location`, `Group`, `ITILCategory` and `State` share `CommonTreeDropdown`: `get_by_name` (contains; `Group` keeps its
+  exact-match lookup), `get_by_complete_name`, `get_children` and `get_roots` (search options 14, 1 and 13).
+  `Entity` has the same method names, but its children are read by `entities_id` (option 13 is the country) and
+  return item rows instead of search rows.
 - `Reminder.get_targets` and `KnowbaseItem.get_targets` return the relation rows with `kind` and `target_id`.
 - `Location.get_items_by_type(location_id, itemtype)` searches the items of any itemtype by location.

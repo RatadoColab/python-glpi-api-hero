@@ -38,6 +38,7 @@ WRITES: list[tuple[str, Callable[[], Any], str, str, dict[str, Any]]] = [
     ("project-delete-task", lambda: tools.Project.delete_task(9), "DELETE", "ProjectTask", {"id": 9}),
     ("project-add-team-member", lambda: tools.Project.add_team_member(1, "User", 5), "POST", "ProjectTeam",
      {"projects_id": 1, "itemtype": "User", "items_id": 5}),
+    ("project-delete-team-member", lambda: tools.Project.delete_team_member(6), "DELETE", "ProjectTeam", {"id": 6}),
     ("reservation-add", lambda: tools.ReservationItem.add_reservation(3, {"begin": "2026-01-01 08:00:00"}), "POST",
      "Reservation", {"begin": "2026-01-01 08:00:00", "reservationitems_id": 3}),
     ("reservation-delete", lambda: tools.ReservationItem.delete_reservation(8), "DELETE", "Reservation", {"id": 8}),

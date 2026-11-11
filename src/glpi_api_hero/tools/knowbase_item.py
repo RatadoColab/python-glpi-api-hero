@@ -4,12 +4,20 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from glpi_api_hero.core.capabilities import HasDocuments
+from glpi_api_hero.core.capabilities import HasDocuments, HasLogs
 from glpi_api_hero.tools._targets import collect_targets
 
 
-class KnowbaseItem(HasDocuments):
+class KnowbaseItem(HasDocuments, HasLogs):
     """GLPI ``KnowbaseItem``."""
+
+    # Target relations of an article: kind -> (relation itemtype, column with the target id)
+    _TARGETS: ClassVar[dict[str, tuple[str, str]]] = {
+        "entity": ("Entity_KnowbaseItem", "entities_id"),
+        "group": ("Group_KnowbaseItem", "groups_id"),
+        "profile": ("KnowbaseItem_Profile", "profiles_id"),
+        "user": ("KnowbaseItem_User", "users_id"),
+    }
 
     @classmethod
     def get_items(cls, knowbaseitem_id: int, **params: Any) -> list[dict[str, Any]]:
@@ -23,14 +31,6 @@ class KnowbaseItem(HasDocuments):
             The rows.
         """
         return cls.get_sub_items(knowbaseitem_id, "KnowbaseItem_Item", **params)
-
-    # Target relations of an article: kind -> (relation itemtype, column with the target id)
-    _TARGETS: ClassVar[dict[str, tuple[str, str]]] = {
-        "entity": ("Entity_KnowbaseItem", "entities_id"),
-        "group": ("Group_KnowbaseItem", "groups_id"),
-        "profile": ("KnowbaseItem_Profile", "profiles_id"),
-        "user": ("KnowbaseItem_User", "users_id"),
-    }
 
     @classmethod
     def get_targets(cls, knowbaseitem_id: int, **params: Any) -> list[dict[str, Any]]:

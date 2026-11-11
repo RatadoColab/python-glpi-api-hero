@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from glpi_api_hero.core.capabilities import HasDocuments
+from glpi_api_hero.core.capabilities import HasDocuments, HasLogs
 from glpi_api_hero.tools._targets import collect_targets
 
 
-class Reminder(HasDocuments):
+class Reminder(HasDocuments, HasLogs):
     """GLPI ``Reminder``."""
 
     # Target relations of a reminder: kind -> (relation itemtype, column with the target id)

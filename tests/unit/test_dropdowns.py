@@ -34,3 +34,9 @@ def test_location_items_by_type(session: GlpiMock) -> None:
     with pytest.raises(ValueError):
         Location.get_items_by_type(7, "../bad")
     assert session.captured() == []
+
+
+def test_location_items_of_a_ticket_use_the_ticket_location_option(session: GlpiMock) -> None:
+    """Tickets number their location option 83, not 3 (option 3 of Ticket is the priority)."""
+    Location.get_items_by_type(7, "Ticket")
+    assert session.captured()[0]["query"]["criteria[0][field]"] == "83"
