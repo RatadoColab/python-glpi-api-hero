@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -104,3 +106,101 @@ def test_top_level_exports() -> None:
 
     assert {"Glpi", "GenericItem", "CommonDBTM", "GlpiError", "__version__"} <= set(glpi_api_hero.__all__)
     assert not {"Ticket", "User", "Location", "Computer", "ApiCommunication"} & set(glpi_api_hero.__all__)
+
+
+MIGRATION_GUIDE = Path(__file__).resolve().parents[2] / "docs" / "migration.md"
+FIXTURE = Path(__file__).resolve().parents[1] / "characterization" / "fixtures" / "requests.json"
+GUIDE_SECTION = "## Renamed, moved and removed API"
+OLD_NAME = re.compile(r"[A-Za-z_]+\.[A-Za-z_]+")
+NEW_TARGET = re.compile(r"^([A-Za-z_][\w.]*):([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?(?:\s*\(.*\))?$")
+
+
+def _guide_rows() -> list[tuple[str, str]]:
+    """Read the ``| old | new |`` rows of the renamed/moved/removed table of the migration guide.
+
+    Returns:
+        ``(old cell, new cell)`` pairs, backticks stripped from the new cell target.
+    """
+    text = MIGRATION_GUIDE.read_text(encoding="utf-8")
+    section = text.split(GUIDE_SECTION, 1)[1].split("\n## ", 1)[0]
+    rows = []
+    for line in section.splitlines():
+        if not line.startswith("|") or line.startswith("|---") or line.startswith("| old "):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split(" | ", 1)]
+        rows.append((cells[0], cells[1]))
+    return rows
+
+
+def _new_target(cell: str) -> str:
+    """Extract the target of a ``new`` cell: its first backticked span, or the whole cell.
+
+    Args:
+        cell: Raw ``new`` cell.
+
+    Returns:
+        The target text.
+    """
+    match = re.match(r"^`([^`]+)`", cell)
+    return match.group(1) if match else cell
+
+
+def _resolve_class(name: str) -> type | None:
+    """Find a model or helper class by name in the top-level package and the domain subpackages.
+
+    Args:
+        name: Class name.
+
+    Returns:
+        The class, or ``None`` when no module exports it.
+    """
+    for module_name in ("glpi_api_hero", *(f"glpi_api_hero.{sub}" for sub in SUBPACKAGES)):
+        module = importlib.import_module(module_name)
+        if hasattr(module, name):
+            return getattr(module, name)
+    return None
+
+
+def test_migration_guide_targets_exist() -> None:
+    """Every ``new`` entry names an existing class/method, or states why the old name was removed."""
+    errors = []
+    rows = _guide_rows()
+    assert rows, "no rows found in the migration guide"
+    for old, new in rows:
+        target = _new_target(new)
+        removed = re.match(r"^removed \((.+)\)", target)
+        if removed:
+            continue
+        match = NEW_TARGET.match(target)
+        if not match:
+            errors.append(f"{old}: unrecognized format {target!r}")
+            continue
+        module_name, class_name, method = match.groups()
+        try:
+            owner = getattr(importlib.import_module(module_name), class_name)
+        except (ImportError, AttributeError):
+            errors.append(f"{old}: {module_name}:{class_name} not found")
+            continue
+        if method and not hasattr(owner, method):
+            errors.append(f"{old}: {class_name}.{method} not found")
+    assert errors == []
+
+
+def test_migration_guide_covers_old_public_methods() -> None:
+    """Every old public method of the characterization fixture is listed in the guide or still exists."""
+    listed = {name for old, _ in _guide_rows() for name in OLD_NAME.findall(old)}
+    listed_methods = {name.split(".", 1)[1] for name in listed}
+    # A bare class name in the old column covers every method of that class
+    listed_classes = {name for old, _ in _guide_rows() for name in re.findall(r"(?<![\w.])[A-Z]\w*(?![\w.])", old)}
+    old_calls = {entry["call"] for entry in json.loads(FIXTURE.read_text(encoding="utf-8"))}
+    missing = []
+    for call in sorted(old_calls):
+        class_name, method = call.split(".", 1)
+        # Methods inherited from CommonDBTM are listed once, under the base class
+        if call in listed or class_name in listed_classes or method in listed_methods or method.startswith("_"):
+            continue
+        owner = _resolve_class(class_name)
+        if owner is not None and hasattr(owner, method):
+            continue
+        missing.append(call)
+    assert missing == []

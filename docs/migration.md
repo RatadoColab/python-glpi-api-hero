@@ -102,8 +102,8 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `ApiRateLimitError` | `glpi_api_hero.exceptions:RateLimitError` |
 | `Actor, Item, Task, LinkedTicket, ITILFollowup, ITILSolution, TicketValidation` | removed (sub-items are methods of `Ticket`, `Change` and `Problem`; any other sub-item is reachable with `GenericItem.of("<itemtype>")`) |
 | `NetworkEquipment (stub)` | `glpi_api_hero.assets:NetworkEquipment` (typed model) |
-| `Cluster (stub)` | removed (typed replacement in phase 07; meanwhile `GenericItem.of("Cluster")`) |
-| `TicketDashboard` | removed from the package (now an example: `examples/ticket_dashboard/ticket_dashboard.py`) |
+| `Cluster (stub)` | `glpi_api_hero.management:Cluster` (typed model) |
+| `TicketDashboard` | removed (now an example: `examples/ticket_dashboard/ticket_dashboard.py`) |
 
 ## Behavior changes already in effect
 
