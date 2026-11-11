@@ -411,6 +411,8 @@ _D40 = ("D40: Ticket sub-items are bound with the column GLPI expects (tickets_i
         "not items_id/itemtype (known bugs fixed)")
 _D41 = "D41: Ticket.approve_solution adds an ITILFollowup with add_close (known bug fixed)"
 _D42 = "D42: search_followups takes criteria as a named argument and searches ITILFollowup (known bug fixed)"
+_D53 = ("D53: search_followups adds the criterion itemtype equals <parent> (search option 6, confirmed on the "
+        "GLPI 10 lab) so a Ticket search never returns Change or Problem follow-ups (P-008)")
 _D43 = ("D43: Ticket.get_actors reads users, groups and suppliers; Ticket_Ticket links are read with a text "
         "search per column because GLPI does not filter that sub-item by parent")
 
@@ -476,7 +478,7 @@ V2: dict[str, dict[str, Any]] = {
     "commondbtm-field-uid": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
     "user-getbyusername-429": {"known_bug": None, "fixed": "mapped to RateLimitError"},
     "group-deleteuser": {"known_bug": None, "requests_change": f"{_D21}; {_D39}", "fixed": _D21},
-    "ticket-searchfollowups": {"known_bug": None, "requests_change": _D42, "fixed": _D42},
+    "ticket-searchfollowups": {"known_bug": None, "requests_change": _D53, "fixed": _D42},
     "ticket-approvalsolution": {"args": [10], "known_bug": None, "requests_change": _D41, "fixed": _D41},
     "ticket-addvalidation": {"requests_change": _D40},
     "ticket-addtask": {"requests_change": _D40},

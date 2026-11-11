@@ -485,8 +485,37 @@ def test_search_followups_searches_the_followup_itemtype(session: GlpiMock) -> N
     Ticket.search_followups([{"field": 1, "searchtype": "contains", "value": "x"}], range="0-4")
     request = _only(session)
     assert request["path"] == "search/ITILFollowup"
-    assert request["query"]["criteria[0][value]"] == "x"
+    # Index 0 is the parent itemtype restriction; the caller criterion follows it
+    assert request["query"]["criteria[1][value]"] == "x"
     assert request["query"]["range"] == "0-4"
+
+
+def test_search_followups_is_restricted_to_the_parent_itemtype(session: GlpiMock) -> None:
+    """The first criterion is ``itemtype equals <parent>`` and the user criteria follow it joined by AND."""
+    criteria = [{"field": 1, "searchtype": "contains", "value": "x", "link": "OR"},
+                {"field": 3, "searchtype": "contains", "value": "2026", "link": "OR"}]
+    Ticket.search_followups(criteria)
+    query = _only(session)["query"]
+    assert query["criteria[0][field]"] == "6"
+    assert query["criteria[0][searchtype]"] == "equals"
+    assert query["criteria[0][value]"] == "Ticket"
+    assert query["criteria[1][field]"] == "1"
+    assert query["criteria[1][link]"] == "AND"
+    assert query["criteria[2][field]"] == "3"
+    assert query["criteria[2][link]"] == "OR"
+    # The caller's list is left untouched
+    assert criteria[0]["link"] == "OR"
+    assert len(criteria) == 2
+
+
+def test_search_followups_without_criteria_still_filters_by_parent(session: GlpiMock) -> None:
+    """Change and Problem restrict to their own itemtype, even with no extra criteria."""
+    for model, itemtype in ((Change, "Change"), (Problem, "Problem")):
+        session.reset_calls()
+        model.search_followups()
+        query = _only(session)["query"]
+        assert query["criteria[0][value]"] == itemtype
+        assert "criteria[1][field]" not in query
 
 
 def test_get_linked_tickets_keeps_the_anchored_search_when_params_collide(session: GlpiMock) -> None:
