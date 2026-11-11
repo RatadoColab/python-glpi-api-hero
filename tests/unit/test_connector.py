@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 import pytest
+import requests
 
 from glpi_api_hero import Glpi
 from glpi_api_hero.core.legacy_rest import LegacyRestConnector
@@ -235,6 +236,83 @@ def test_download_document_stays_in_directory(session: GlpiMock, tmp_path: Path)
         _connector().download_document(9, tmp_path / "missing")
 
 
+@pytest.mark.parametrize(("header", "expected"), [
+    ("attachment; filename=\"..\"", "document-9"),
+    ("attachment; filename=\".\"", "document-9"),
+    ("attachment; filename=\"a\\\\b\\\\..\\\\c.txt\"", "c.txt"),
+    ("attachment; filename=\"d\\'Ar\\\"t.txt\"", "d'Ar\"t.txt"),
+    ("attachment; filename=\"caf\xe9.txt\"; filename*=utf-8''caf%C3%A9%3B%27x.txt", "caf\xe9;'x.txt"),
+])
+def test_download_filename_from_content_disposition(session: GlpiMock, tmp_path: Path, header: str,
+                                                    expected: str) -> None:
+    """The name comes from the RFC 5987 form when present and never points at a directory.
+
+    Args:
+        session: Simulator with an open session.
+        tmp_path: Temporary directory.
+        header: Content-Disposition value.
+        expected: Expected file name.
+    """
+    session.override("GET", "Document/9", 200, "bytes", headers={"Content-Disposition": header})
+    assert _connector().download_document(9, tmp_path) == tmp_path / expected
+    assert (tmp_path / expected).read_text() == "bytes"
+
+
+def test_download_failure_leaves_no_partial_file(session: GlpiMock, tmp_path: Path,
+                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network error while streaming becomes ``GlpiConnectionError`` and keeps the previous file.
+
+    Args:
+        session: Simulator with an open session.
+        tmp_path: Temporary directory.
+        monkeypatch: Pytest monkeypatch.
+    """
+    existing = tmp_path / "report.pdf"
+    existing.write_text("old")
+    session.override("GET", "Document/9", 200, "new-bytes",
+                     headers={"Content-Disposition": 'attachment; filename="report.pdf"'})
+
+    def broken(self: requests.Response, *args: object, **kwargs: object) -> object:
+        """Fail in the middle of the transfer."""
+        yield b"ne"
+        raise requests.exceptions.ChunkedEncodingError("connection broken")
+
+    monkeypatch.setattr(requests.Response, "iter_content", broken)
+    with pytest.raises(GlpiConnectionError):
+        _connector().download_document(9, tmp_path)
+    assert existing.read_text() == "old"
+    assert [path.name for path in tmp_path.iterdir()] == ["report.pdf"]
+
+
+def test_upload_error_survives_a_failed_purge(session: GlpiMock, tmp_path: Path) -> None:
+    """When the purge of the empty Document fails too, the upload error is still the one raised.
+
+    Args:
+        session: Simulator with an open session.
+        tmp_path: Temporary directory.
+    """
+    source = tmp_path / "virus.exe"
+    source.write_text("x")
+    session.override("POST", "Document", 201, {"id": 55, "upload_result": {"filename": [
+        {"name": "virus.exe", "error": "Filetype not allowed"}]}})
+    session.override("DELETE", "Document", 429, ["ERROR_RATE_LIMIT", "slow down"])
+    with pytest.raises(BadRequestError, match="Filetype not allowed"):
+        _connector().upload_document("Bad", source)
+
+
+def test_relative_ca_bundle_is_stored_absolute(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A relative CA bundle path keeps pointing at the same file after a chdir.
+
+    Args:
+        tmp_path: Temporary directory.
+        monkeypatch: Pytest monkeypatch.
+    """
+    (tmp_path / "ca.pem").write_text("pem")
+    monkeypatch.chdir(tmp_path)
+    connector = LegacyRestConnector(BASE_URL, user_token=USER_TOKEN, verify="ca.pem")
+    assert connector.verify == str(tmp_path / "ca.pem")
+
+
 def test_kill_session_closes_even_on_error(session: GlpiMock) -> None:
     """The session token is dropped even when killSession fails.
 
@@ -312,23 +390,50 @@ def test_exceptions_do_not_keep_credentials(glpi_mock: GlpiMock) -> None:
     assert glpi_mock.captured()[0]["headers"]["Authorization"] == f"user_token {USER_TOKEN}"
 
 
-def test_connection_error_cause_is_masked(session: GlpiMock) -> None:
-    """The chained requests exception does not expose the session token.
+def test_connection_error_cause_is_masked(session: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The chained requests exception does not expose the credentials (request, response, history, message).
 
     Args:
         session: Simulator with an open session.
+        monkeypatch: Pytest monkeypatch.
     """
-    session.override("GET", "Location/1", error="connection")
+    connector = _connector()
+    secret_request = requests.Request("GET", f"{BASE_URL}/Location/1",
+                                      headers={"Session-Token": SESSION_TOKEN, "App-Token": APP_TOKEN}).prepare()
+    previous = requests.Response()
+    previous.request = secret_request
+    response = requests.Response()
+    response.status_code = 302
+    response.request = secret_request
+    response.history = [previous]
+
+    def fail(*args: object, **kwargs: object) -> object:
+        """Raise what requests raises on a redirect loop, with the token in the message."""
+        raise requests.exceptions.TooManyRedirects(f"loop with {SESSION_TOKEN}", request=secret_request,
+                                                   response=response)
+
+    monkeypatch.setattr(connector._http, "request", fail)
     with pytest.raises(GlpiConnectionError) as info:
-        _connector().get_item("Location", 1)
+        connector.get_item("Location", 1)
     cause = info.value.__cause__
-    assert cause is not None
-    request = getattr(cause, "request", None)
-    assert request is None or SESSION_TOKEN not in str(request.headers)
+    assert SESSION_TOKEN not in str(info.value) and SESSION_TOKEN not in str(cause)
+    for request in (cause.request, cause.response.request, cause.response.history[0].request):
+        assert request.headers["Session-Token"] == "***"
+        assert request.headers["App-Token"] == "***"
+    # The original prepared request is left untouched
+    assert secret_request.headers["Session-Token"] == SESSION_TOKEN
+
+
+def test_redact_covers_repr_and_basic_forms() -> None:
+    """Tokens with whitespace are masked in their ``repr()`` form, and so is the Basic credential."""
+    connector = LegacyRestConnector(BASE_URL, "app", username="user", password="pa ss\n")
+    shown = repr("pa ss\n")[1:-1]
+    assert "pa ss" not in connector._redact(f"Invalid header value {shown}")
+    assert "dXNlcjpwYSBzcwo=" not in connector._redact("Basic dXNlcjpwYSBzcwo=")
 
 
 def test_verify_overrides_environment_bundle(glpi_mock: GlpiMock, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The TLS setting is sent with every request, so REQUESTS_CA_BUNDLE cannot replace it.
+    """The TLS setting is sent with every request, so REQUESTS_CA_BUNDLE cannot replace False.
 
     Args:
         glpi_mock: Active GLPI simulator.
