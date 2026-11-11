@@ -101,7 +101,7 @@ The `new` column reads `module:Class.method`, or `removed (<reason>)` when there
 | `ApiRateLimitError` | `glpi_api_hero.exceptions:RateLimitError` |
 | `Actor, Item, Task, LinkedTicket, ITILFollowup, ITILSolution, TicketValidation` | removed (provisional private classes in `core/_legacy_children.py`; typed replacements in phase 05) |
 | `Cluster, NetworkEquipment (stubs)` | removed (provisional private classes; typed replacements in phases 06 to 08) |
-| `TicketDashboard` | moves to `examples/` in phase 04.2 |
+| `TicketDashboard` | removed from the package (now an example: `examples/ticket_dashboard/ticket_dashboard.py`) |
 
 ## Behavior changes already in effect
 

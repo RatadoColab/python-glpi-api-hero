@@ -393,7 +393,25 @@ _D23 = "D23: getLoggedUser reads User/<glpiID> of the session (known bug fixed)"
 _D29 = "D29: a failed single delete reads the item back to tell missing (NotFoundError) from refused"
 _D22 = "D22: CommonDBTM.add takes one dict; a non-dict payload fails before any request"
 
+_D34 = "D34: Computer.get_disks queries the real sub-itemtype Item_Disk (ComputerDisk does not exist in GLPI 10)"
+_D35 = "D35: Location searches use the rawSearchOptions ids (name 14, completename 1) and User location 3"
+_D36 = "D36: the dashboard SLA field is time_to_resolve (18); 155 is time_to_own"
+_D37 = "D37: Location.update_from_list warns through logging instead of print()"
+
 V2: dict[str, dict[str, Any]] = {
+    "computer-getdisks": {"requests_change": _D34, "fixed": _D34},
+    "location-getbyname": {"requests_change": _D35, "fixed": _D35},
+    "location-getbycompletename": {"requests_change": _D35, "fixed": _D35},
+    "location-getusers": {"requests_change": _D35, "fixed": _D35},
+    "location-updatefromlist-empty-server": {"known_bug": None, "fixed": _D37},
+    "location-updatefromlist-duplicate": {"known_bug": None, "fixed": _D37},
+    "location-updatefromlist-non-list": {"fixed": _D37},
+    "location-updatefromlist-duplicate-list-answer": {"fixed": _D37},
+    "dashboard-metrics": {"requests_change": _D36},
+    "dashboard-metrics-category": {"requests_change": _D36},
+    "dashboard-collect-data": {"requests_change": _D36},
+    "dashboard-collect-data-categories": {"requests_change": _D36},
+    "dashboard-diagnose": {"requests_change": _D36},
     "session-set-connection-parameters": {"known_bug": None,
                                           "fixed": "user token stored under 'usertoken'"},
     "session-init-user-token": {"known_bug": None, "requests_change": _D19, "fixed": _D19},

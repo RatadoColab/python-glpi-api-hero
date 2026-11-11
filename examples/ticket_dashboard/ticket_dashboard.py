@@ -1,8 +1,7 @@
 import os
 from datetime import date, datetime
 
-from glpi_api_hero.core.common_dbtm import CommonDBTM
-from glpi_api_hero.core.session import Glpi
+from glpi_api_hero import CommonDBTM, Glpi
 
 
 class TicketDashboard(CommonDBTM):
@@ -17,7 +16,7 @@ class TicketDashboard(CommonDBTM):
     Exemplo:
 
         from glpi_api_hero import Glpi
-        from glpi_api_hero.ticket_dashboard import TicketDashboard
+        from examples.ticket_dashboard.ticket_dashboard import TicketDashboard
 
         Glpi.connect(url, apptoken, user_token=token)
 
@@ -49,7 +48,7 @@ class TicketDashboard(CommonDBTM):
     FIELD_STATUS    = 12
     FIELD_CATEGORIA = 7    # itilcategories_id
     FIELD_ABERTURA  = 15
-    FIELD_PRAZO     = 155  # time_to_resolve — usado para cálculo do SLA.
+    FIELD_PRAZO     = 18   # time_to_resolve — usado para cálculo do SLA.
 
     _CARD_COLORS = ["#1a6b3c", "#1c2e4a", "#4a3080", "#1a7dc4", "#c48a00", "#c94040"]
 

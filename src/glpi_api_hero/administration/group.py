@@ -1,12 +1,15 @@
 from typing import Any
 
+from glpi_api_hero.assistance.ticket import Ticket
 from glpi_api_hero.core.common_dbtm import CommonDBTM
 from glpi_api_hero.core.constants import ActorType
-from glpi_api_hero.core.session import Glpi
 
 
 class Group(CommonDBTM):
     """GLPI groups (Administration > Groups)."""
+
+    # Search option ids of the Group itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_COMPLETE_NAME = 1
 
     @classmethod
     def get_users(cls, group_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -82,11 +85,11 @@ class Group(CommonDBTM):
         """
         # Mapeamento actor_type → field ID de grupo na busca de Ticket
         field_map = {
-            ActorType.REQUESTER: 71,  # "Requester group"
-            ActorType.ASSIGNED: 8,  # "Assigned to - Group"
-            ActorType.OBSERVER: 65,  # "Watcher group"
+            ActorType.REQUESTER: Ticket.SEARCH_FIELD_REQUESTER_GROUP,
+            ActorType.ASSIGNED: Ticket.SEARCH_FIELD_ASSIGNED_GROUP,
+            ActorType.OBSERVER: Ticket.SEARCH_FIELD_OBSERVER_GROUP,
         }
-        field_id = field_map.get(actor_type, 8)
+        field_id = field_map.get(actor_type, Ticket.SEARCH_FIELD_ASSIGNED_GROUP)
 
         criteria = [
             {
@@ -95,7 +98,7 @@ class Group(CommonDBTM):
                 "value": group_id,
             }
         ]
-        return Glpi.connector().search("Ticket", criteria, **kwargs)
+        return Ticket.search(criteria, **kwargs)
 
     @classmethod
     def get_by_name(cls, name: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -110,9 +113,9 @@ class Group(CommonDBTM):
         """
         criteria = [
             {
-                "field": 1,
+                "field": cls.SEARCH_FIELD_COMPLETE_NAME,
                 "searchtype": "equals",
                 "value": name,
             }
         ]
-        return Glpi.connector().search("Group", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)

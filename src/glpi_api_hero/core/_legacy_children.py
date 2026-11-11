@@ -45,3 +45,6 @@ class Cluster(CommonDBTM):
 
 class NetworkEquipment(CommonDBTM):
     """Network equipment (placeholder)."""
+
+    # Search option id of the location (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_LOCATION = 3

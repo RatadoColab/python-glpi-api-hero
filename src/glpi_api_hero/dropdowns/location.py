@@ -1,13 +1,26 @@
+import logging
 from collections.abc import Callable
 from typing import Any
 
+from glpi_api_hero.administration.user import User
+from glpi_api_hero.assets.computer import Computer
+from glpi_api_hero.assistance.ticket import Ticket
+from glpi_api_hero.core._legacy_children import NetworkEquipment
 from glpi_api_hero.core.common_dbtm import CommonDBTM
-from glpi_api_hero.core.session import Glpi
 from glpi_api_hero.exceptions import GlpiAPIError
+
+logger = logging.getLogger("glpi_api_hero")
 
 
 class Location(CommonDBTM):
     """Locations (Setup > Dropdowns > Locations)."""
+
+    # Search option ids of the Location itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_COMPLETE_NAME = 1
+    SEARCH_FIELD_NAME = 14
+    SEARCH_FIELD_PARENT = 13
+    # "code" is not a core GLPI field: option 11 is the building number (see PENDING P-004)
+    SEARCH_FIELD_CODE = 11
 
     # Métodos de busca ################################
 
@@ -24,12 +37,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 1,
+                "field": cls.SEARCH_FIELD_NAME,
                 "searchtype": "contains",
                 "value": name,
             }
         ]
-        return Glpi.connector().search("Location", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_code(cls, code: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -44,12 +57,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 11,
+                "field": cls.SEARCH_FIELD_CODE,
                 "searchtype": "equals",
                 "value": code,
             }
         ]
-        return Glpi.connector().search("Location", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_complete_name(cls, complete_name: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -64,12 +77,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 2,
+                "field": cls.SEARCH_FIELD_COMPLETE_NAME,
                 "searchtype": "contains",
                 "value": complete_name,
             }
         ]
-        return Glpi.connector().search("Location", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     # Métodos de hierarquia ################################
 
@@ -86,12 +99,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 13,
+                "field": cls.SEARCH_FIELD_PARENT,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return Glpi.connector().search("Location", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_roots(cls, **kwargs: Any) -> list[dict[str, Any]]:
@@ -105,12 +118,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 13,
+                "field": cls.SEARCH_FIELD_PARENT,
                 "searchtype": "equals",
                 "value": 0,
             }
         ]
-        return Glpi.connector().search("Location", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     # Métodos de itens na localização ################################
 
@@ -127,12 +140,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 3,
+                "field": Computer.SEARCH_FIELD_LOCATION,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return Glpi.connector().search("Computer", criteria, **kwargs)
+        return Computer.search(criteria, **kwargs)
 
     @classmethod
     def get_network_equipments(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -147,12 +160,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 3,
+                "field": NetworkEquipment.SEARCH_FIELD_LOCATION,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return Glpi.connector().search("NetworkEquipment", criteria, **kwargs)
+        return NetworkEquipment.search(criteria, **kwargs)
 
     @classmethod
     def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -167,12 +180,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 83,
+                "field": Ticket.SEARCH_FIELD_LOCATION,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return Glpi.connector().search("Ticket", criteria, **kwargs)
+        return Ticket.search(criteria, **kwargs)
 
     @classmethod
     def get_users(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -187,12 +200,12 @@ class Location(CommonDBTM):
         """
         criteria = [
             {
-                "field": 5,
+                "field": User.SEARCH_FIELD_LOCATION,
                 "searchtype": "equals",
                 "value": location_id,
             }
         ]
-        return Glpi.connector().search("User", criteria, **kwargs)
+        return User.search(criteria, **kwargs)
 
     # Métodos de criação ################################
 
@@ -252,16 +265,19 @@ class Location(CommonDBTM):
         Returns:
             list: Operation results (one entry per processed item).
         """
+        # Nothing to process: no request is needed
+        if not items:
+            return []
+
         # get_all returns full objects with a direct 'id' — no field ID ambiguity
         all_locations = cls.get_all(range="0-9999")
         if not isinstance(all_locations, list):
             all_locations = []
 
         if not all_locations:
-            print(
-                "[AVISO] get_all_items retornou 0 localizações. "
-                "Verifique se o perfil GLPI tem permissão de LEITURA em Location "
-                "(Setup > Profiles > seu perfil > Assets > Locations: Read)."
+            logger.warning(
+                "get_all returned no Location: check that the GLPI profile can read Locations "
+                "(Setup > Profiles > Assets > Locations: Read)"
             )
 
         # Index current locations by key and by name for matching
@@ -286,9 +302,10 @@ class Location(CommonDBTM):
                     results.append(cls.add({**mapped, "locations_id": locations_id, "entities_id": entities_id}))
                 except GlpiAPIError as exc:
                     if "Duplicate entry" in str(exc):
-                        print(
-                            f'[AVISO] "{name}" já existe no GLPI mas não foi encontrada via API. '
-                            "Corrija a permissão de leitura para habilitar a atualização."
+                        logger.warning(
+                            "Location %r already exists but was not found through the API: "
+                            "fix the read permission to enable updates",
+                            name,
                         )
                         results.append({"skipped": True, "name": name})
                     else:

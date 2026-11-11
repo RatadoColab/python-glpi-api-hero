@@ -1,11 +1,17 @@
 from typing import Any
 
+from glpi_api_hero.assistance.ticket import Ticket
 from glpi_api_hero.core.common_dbtm import CommonDBTM
-from glpi_api_hero.core.session import Glpi
 
 
 class Computer(CommonDBTM):
     """Computers (Assets > Computers)."""
+
+    # Search option ids of the Computer itemtype (GLPI 10 rawSearchOptions)
+    SEARCH_FIELD_NAME = 1
+    SEARCH_FIELD_SERIAL = 5
+    SEARCH_FIELD_INVENTORY_NUMBER = 6
+    SEARCH_FIELD_LOCATION = 3
 
     # Métodos de busca ################################
 
@@ -22,12 +28,12 @@ class Computer(CommonDBTM):
         """
         criteria = [
             {
-                "field": 1,
+                "field": cls.SEARCH_FIELD_NAME,
                 "searchtype": "contains",
                 "value": name,
             }
         ]
-        return Glpi.connector().search("Computer", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_serial(cls, serial: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -42,12 +48,12 @@ class Computer(CommonDBTM):
         """
         criteria = [
             {
-                "field": 5,
+                "field": cls.SEARCH_FIELD_SERIAL,
                 "searchtype": "equals",
                 "value": serial,
             }
         ]
-        return Glpi.connector().search("Computer", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     @classmethod
     def get_by_inventory_number(cls, otherserial: str, **kwargs: Any) -> list[dict[str, Any]]:
@@ -62,12 +68,12 @@ class Computer(CommonDBTM):
         """
         criteria = [
             {
-                "field": 6,
+                "field": cls.SEARCH_FIELD_INVENTORY_NUMBER,
                 "searchtype": "equals",
                 "value": otherserial,
             }
         ]
-        return Glpi.connector().search("Computer", criteria, **kwargs)
+        return cls.search(criteria, **kwargs)
 
     # Métodos de sistema operacional ################################
 
@@ -153,7 +159,7 @@ class Computer(CommonDBTM):
         Returns:
             list: Lista de discos/volumes do computador.
         """
-        return cls.get_sub_items(computer_id, "ComputerDisk", **kwargs)
+        return cls.get_sub_items(computer_id, "Item_Disk", **kwargs)
 
     @classmethod
     def get_hard_drives(cls, computer_id: int, **kwargs: Any) -> list[dict[str, Any]]:
@@ -198,12 +204,12 @@ class Computer(CommonDBTM):
         """
         criteria = [
             {
-                "field": 131,
+                "field": Ticket.SEARCH_FIELD_ITEM_TYPE,
                 "searchtype": "equals",
                 "value": computer_id,
             }
         ]
-        return Glpi.connector().search("Ticket", criteria, **kwargs)
+        return Ticket.search(criteria, **kwargs)
 
     # Métodos de informações de compra ################################
 
