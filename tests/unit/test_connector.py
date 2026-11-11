@@ -280,7 +280,7 @@ def test_download_failure_leaves_no_partial_file(session: GlpiMock, tmp_path: Pa
 
     monkeypatch.setattr(requests.Response, "iter_content", broken)
     with pytest.raises(GlpiConnectionError):
-        _connector().download_document(9, tmp_path)
+        _connector().download_document(9, tmp_path, overwrite=True)
     assert existing.read_text() == "old"
     assert [path.name for path in tmp_path.iterdir()] == ["report.pdf"]
 
@@ -537,3 +537,39 @@ def test_path_segments_are_percent_encoded(session: GlpiMock) -> None:
     session.reset_calls()
     _connector().get_sub_items("Computer", 3, "User/1")
     assert session.rsps.calls[0].request.url.split("?")[0].endswith("/Computer/3/User%2F1")
+
+
+def test_download_does_not_overwrite_without_the_flag(session: GlpiMock, tmp_path: Path) -> None:
+    """An existing file is kept (``FileExistsError``) unless ``overwrite=True``; no temporary file is left."""
+    target = tmp_path / "report.pdf"
+    target.write_text("old")
+    session.override("GET", "Document/9", 200, "new",
+                     headers={"Content-Disposition": 'attachment; filename="report.pdf"'})
+    with pytest.raises(FileExistsError):
+        _connector().download_document(9, tmp_path)
+    assert target.read_text() == "old"
+    assert [path.name for path in tmp_path.iterdir()] == ["report.pdf"]
+    assert _connector().download_document(9, tmp_path, overwrite=True) == target
+    assert target.read_text() == "new"
+    assert [path.name for path in tmp_path.iterdir()] == ["report.pdf"]
+
+
+def test_download_refuses_a_symlink_that_leaves_the_directory(session: GlpiMock, tmp_path: Path) -> None:
+    """A planted symlink with the target name cannot redirect the write outside the directory."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    directory = tmp_path / "dest"
+    directory.mkdir()
+    (directory / "report.pdf").symlink_to(outside / "secret.txt")
+    session.override("GET", "Document/9", 200, "new",
+                     headers={"Content-Disposition": 'attachment; filename="report.pdf"'})
+    with pytest.raises(ValueError):
+        _connector().download_document(9, directory, overwrite=True)
+    assert not (outside / "secret.txt").exists()
+
+
+def test_download_filename_drops_control_characters(session: GlpiMock, tmp_path: Path) -> None:
+    """Control characters of a server-provided name are removed."""
+    session.override("GET", "Document/9", 200, "x",
+                     headers={"Content-Disposition": 'attachment; filename="a\x01b\x7fc.txt"'})
+    assert _connector().download_document(9, tmp_path).name == "abc.txt"

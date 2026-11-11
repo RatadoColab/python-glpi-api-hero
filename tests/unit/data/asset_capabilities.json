@@ -270,6 +270,84 @@
   "Cable": [
    "infocom",
    "ticket"
+  ],
+  "SoftwareLicense": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "ticket",
+   "notes"
+  ],
+  "Budget": [
+   "document",
+   "notes"
+  ],
+  "Supplier": [
+   "document",
+   "notes"
+  ],
+  "Contact": [
+   "document",
+   "notes"
+  ],
+  "Contract": [
+   "document",
+   "notes"
+  ],
+  "Document": [
+   "document",
+   "notes"
+  ],
+  "Line": [
+   "infocom",
+   "contract",
+   "document",
+   "ticket",
+   "notes"
+  ],
+  "Certificate": [
+   "infocom",
+   "contract",
+   "document",
+   "domain",
+   "ticket",
+   "notes"
+  ],
+  "Datacenter": [],
+  "Cluster": [
+   "networkport",
+   "contract",
+   "document",
+   "appliance",
+   "ticket"
+  ],
+  "Domain": [
+   "infocom",
+   "contract",
+   "certificate",
+   "ticket",
+   "notes"
+  ],
+  "Appliance": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "ticket",
+   "notes"
+  ],
+  "DatabaseInstance": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "ticket",
+   "notes"
   ]
  },
  "device_types": {
@@ -365,5 +443,40 @@
   "Item_DeviceCase": [
    "Computer"
   ]
- }
+ },
+ "excluded": {
+  "Appliance": {
+   "capabilities": [
+    "appliance"
+   ],
+   "reason": "Appliance_Item has appliances_id: GLPI filters the sub-item by the parent as owner, so it would list the items of the appliance, not the appliances it belongs to"
+  },
+  "Document": {
+   "capabilities": [
+    "document"
+   ],
+   "reason": "Document_Item has documents_id: same ambiguity (Document.get_items lists the items of the document)"
+  },
+  "Supplier": {
+   "capabilities": [
+    "contract"
+   ],
+   "reason": "Supplier.get_contracts is its own method (Contract_Supplier); Supplier is not in contract_types"
+  }
+ },
+ "management": [
+  "SoftwareLicense",
+  "Budget",
+  "Supplier",
+  "Contact",
+  "Contract",
+  "Document",
+  "Line",
+  "Certificate",
+  "Datacenter",
+  "Cluster",
+  "Domain",
+  "Appliance",
+  "DatabaseInstance"
+ ]
 }
