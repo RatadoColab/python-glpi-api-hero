@@ -767,13 +767,15 @@ class LegacyRestConnector(Connector):
                                   error_code="ERROR_GLPI_INVALID_DOCUMENT")
         return documents_id
 
-    def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None) -> Path:
+    def download_document(self, documents_id: int, dirpath: str | Path, filename: str | None = None,
+                          mode: int = 0o600) -> Path:
         """Download the file of a Document.
 
         Args:
             documents_id: Document id.
             dirpath: Existing directory where the file is written.
             filename: File name; defaults to the name stored in GLPI.
+            mode: Permissions of the new file (owner-only by default; documents may be confidential).
 
         Returns:
             Path of the written file.
@@ -798,8 +800,8 @@ class LegacyRestConnector(Connector):
                 target = directory / f"document-{documents_id}"
             # The file is written aside and renamed at the end: a failed transfer never leaves a partial file
             temp_path = str(directory / f".glpi-download-{uuid.uuid4().hex}")
-            # Created with the default mode (0666 minus the umask), unlike mkstemp (0600)
-            handle_fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+            # Created with ``mode`` (minus the umask); owner-only unless the caller asks for more
+            handle_fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
             with os.fdopen(handle_fd, "wb") as handle:
                 for chunk in response.iter_content(chunk_size=65536):
                     handle.write(chunk)

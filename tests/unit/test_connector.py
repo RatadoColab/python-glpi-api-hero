@@ -494,8 +494,8 @@ def test_search_extra_booleans_are_sent_as_lowercase_text(session: GlpiMock) -> 
     assert (query["expand_dropdowns"], query["is_deleted"]) == ("false", "true")
 
 
-def test_downloaded_file_honors_the_umask(session: GlpiMock, tmp_path: Path) -> None:
-    """The file is not forced to owner-only permissions.
+def test_downloaded_file_is_owner_only_unless_asked(session: GlpiMock, tmp_path: Path) -> None:
+    """Downloads are created with mode 0600 by default; ``mode`` opts into wider permissions (umask applies).
 
     Args:
         session: Simulator with an open session.
@@ -506,7 +506,9 @@ def test_downloaded_file_honors_the_umask(session: GlpiMock, tmp_path: Path) -> 
     session.override("GET", "Document/9", 200, "bytes", headers={"Content-Disposition": 'attachment; filename="a.txt"'})
     previous = os.umask(0o022)
     try:
-        target = _connector().download_document(9, tmp_path)
+        private = _connector().download_document(9, tmp_path)
+        shared = _connector().download_document(9, tmp_path, "b.txt", mode=0o666)
     finally:
         os.umask(previous)
-    assert target.stat().st_mode & 0o777 == 0o644
+    assert private.stat().st_mode & 0o777 == 0o600
+    assert shared.stat().st_mode & 0o777 == 0o644
