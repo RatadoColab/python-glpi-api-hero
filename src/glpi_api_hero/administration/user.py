@@ -38,22 +38,12 @@ class User(CommonDBTM):
         Returns:
             list: Lista de chamados encontrados.
         """
-        # Mapeamento actor_type → field ID na busca do GLPI
-        field_map = {
-            ActorType.REQUESTER: Ticket.SEARCH_FIELD_REQUESTER,
-            ActorType.ASSIGNED: Ticket.SEARCH_FIELD_ASSIGNED,
-            ActorType.OBSERVER: Ticket.SEARCH_FIELD_OBSERVER,
-        }
-        field_id = field_map.get(actor_type, Ticket.SEARCH_FIELD_REQUESTER)
-
-        criteria = [
-            {
-                "field": field_id,
-                "searchtype": "equals",
-                "value": user_id,
-            }
-        ]
-        return Ticket.search(criteria, **kwargs)
+        # Delegate to the actor search of the ITIL base; unknown roles keep the requester search
+        if actor_type == ActorType.ASSIGNED:
+            return Ticket.get_by_assigned(user_id, **kwargs)
+        if actor_type == ActorType.OBSERVER:
+            return Ticket.get_by_observer(user_id, **kwargs)
+        return Ticket.get_by_requester(user_id, **kwargs)
 
     @classmethod
     def get_by_username(cls, username: str, **kwargs: Any) -> list[dict[str, Any]]:

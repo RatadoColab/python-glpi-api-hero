@@ -23,9 +23,8 @@ TICKET_WRITERS = [
     ("update_validation", (60, {"status": 2})),
     ("add_task", (10, {"content": "x"})),
     ("update_task", (70, {"state": 2})),
-    ("add_item", (10, {"itemtype": "Computer", "items_id": 3})),
-    ("add_actor", (10, {"type": 2, "users_id": 2})),
-    ("add_linked_ticket", (10, {"tickets_id_2": 11, "link": 1})),
+    ("add_cost", (10, {"name": "x", "cost_fixed": 5})),
+    ("update_cost", (80, {"cost_fixed": 6})),
 ]
 
 

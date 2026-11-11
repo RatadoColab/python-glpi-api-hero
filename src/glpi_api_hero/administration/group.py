@@ -85,22 +85,10 @@ class Group(CommonDBTM):
         Returns:
             list: Lista de chamados encontrados.
         """
-        # Mapeamento actor_type → field ID de grupo na busca de Ticket
-        field_map = {
-            ActorType.REQUESTER: Ticket.SEARCH_FIELD_REQUESTER_GROUP,
-            ActorType.ASSIGNED: Ticket.SEARCH_FIELD_ASSIGNED_GROUP,
-            ActorType.OBSERVER: Ticket.SEARCH_FIELD_OBSERVER_GROUP,
-        }
-        field_id = field_map.get(actor_type, Ticket.SEARCH_FIELD_ASSIGNED_GROUP)
-
-        criteria = [
-            {
-                "field": field_id,
-                "searchtype": "equals",
-                "value": group_id,
-            }
-        ]
-        return Ticket.search(criteria, **kwargs)
+        # Delegate to the actor search of the ITIL base; unknown roles keep the assigned-group search
+        if actor_type not in tuple(ActorType):
+            actor_type = ActorType.ASSIGNED
+        return Ticket.get_by_group(group_id, actor_type, **kwargs)
 
     @classmethod
     def get_by_name(cls, name: str, **kwargs: Any) -> list[dict[str, Any]]:

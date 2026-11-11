@@ -374,6 +374,11 @@ SCENARIOS: list[dict[str, Any]] = [
     {"id": "commondbtm-add-many-empty", "since": "v2", "call": "Location.add_many", "args": [[]]},
     {"id": "commondbtm-update-many-empty", "since": "v2", "call": "Location.update_many", "args": [[]]},
     {"id": "commondbtm-delete-many-empty", "since": "v2", "call": "Location.delete_many", "args": [[]]},
+    {"id": "ticket-getsatisfaction", "since": "v2", "call": "Ticket.get_satisfaction", "args": [10],
+     "responses": [{"method": "GET", "path": "Ticket/10/TicketSatisfaction", "status": 200,
+                    "body": [{"id": 3, "tickets_id": 10, "satisfaction": 4}]}]},
+    {"id": "ticket-getsatisfaction-none", "since": "v2", "call": "Ticket.get_satisfaction", "args": [10],
+     "responses": [{"method": "GET", "path": "Ticket/10/TicketSatisfaction", "status": 200, "body": []}]},
     {"id": "dashboard-collect-data-categories", "call": "TicketDashboard.collect_data",
      "args": ["2026-01-01", "2026-01-31", {"Infrastructure": 3, "Systems": 5}]},
 ]
@@ -398,6 +403,19 @@ _D35 = "D35: Location searches use the rawSearchOptions ids (name 14, completena
 _D36 = "D36: the dashboard SLA field is time_to_resolve (18); 155 is time_to_own"
 _D39 = "D39: Group.delete_user reads the whole membership (range 0-9999); Group.get_by_name uses the name (14)"
 _D37 = "D37: Location.update_from_list warns through logging instead of print()"
+
+_D40 = ("D40: Ticket sub-items are bound with the column GLPI expects (tickets_id, tickets_id_1...), "
+        "not items_id/itemtype (known bugs fixed)")
+_D41 = "D41: Ticket.approve_solution adds an ITILFollowup with add_close (known bug fixed)"
+_D42 = "D42: search_followups takes criteria as a named argument and searches ITILFollowup (known bug fixed)"
+_D43 = ("D43: Ticket.get_actors reads users, groups and suppliers; Ticket_Ticket links are read with a text "
+        "search per column because GLPI does not filter that sub-item by parent")
+
+_TICKET_LINK_ROWS = [
+    {"id": 5, "tickets_id_1": 10, "tickets_id_2": 11, "link": 1},
+    {"id": 6, "tickets_id_1": 12, "tickets_id_2": 10, "link": 3},
+    {"id": 7, "tickets_id_1": 100, "tickets_id_2": 101, "link": 1},
+]
 
 V2: dict[str, dict[str, Any]] = {
     "group-getbyname": {"requests_change": _D39, "fixed": _D39},
@@ -451,7 +469,20 @@ V2: dict[str, dict[str, Any]] = {
     "commondbtm-field-uid": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
     "user-getbyusername-429": {"known_bug": None, "fixed": "mapped to RateLimitError"},
     "group-deleteuser": {"known_bug": None, "requests_change": f"{_D21}; {_D39}", "fixed": _D21},
-    "ticket-approvalsolution": {"requests_change": _D22},
+    "ticket-searchfollowups": {"known_bug": None, "requests_change": _D42, "fixed": _D42},
+    "ticket-approvalsolution": {"args": [10], "known_bug": None, "requests_change": _D41, "fixed": _D41},
+    "ticket-addvalidation": {"requests_change": _D40},
+    "ticket-addtask": {"requests_change": _D40},
+    "ticket-additem": {"args": [10, "Computer", 3], "known_bug": None, "requests_change": _D40, "fixed": _D40},
+    "ticket-addactor": {"args": [10, "user", 2, 2], "known_bug": None, "requests_change": _D40, "fixed": _D40},
+    "ticket-deleteactor": {"args": [90, "user"]},
+    "ticket-getactors": {"requests_change": _D43},
+    "ticket-addlinkedticket": {"call": "Ticket.link_ticket", "args": [10, 11, 1], "known_bug": None,
+                               "requests_change": _D40, "fixed": _D40},
+    "ticket-deletelinkedticket": {"call": "Ticket.unlink", "args": ["Ticket_Ticket", 95]},
+    "ticket-getlinkedtickets": {"requests_change": _D43,
+                                "responses": [{"method": "GET", "path": "Ticket_Ticket", "status": 200,
+                                               "body": _TICKET_LINK_ROWS}]},
 }
 
 
