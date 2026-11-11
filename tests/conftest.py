@@ -336,7 +336,8 @@ def describe_request(request: requests.PreparedRequest) -> dict[str, Any]:
 def reset_api_state() -> None:
     """Reset the global session state kept by the library between tests."""
     # Imported lazily so the simulator stays usable if the package layout changes
-    from glpi_api_hero import ApiCommunication, Glpi
+    from glpi_api_hero import Glpi
+    from tests.characterization.legacy_session import ApiCommunication
 
     # Drops the connector and closes its pooled HTTP connections, without any request
     Glpi._reset()

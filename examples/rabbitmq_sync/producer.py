@@ -4,6 +4,7 @@ Producer: reads records from a JSON file and publishes one message per record to
 import json
 import os
 from pathlib import Path
+
 # Importando bibliotecas necessárias para a interação com o RabbitMQ.
 import pika
 from dotenv import load_dotenv

@@ -3,9 +3,9 @@ requires = ["setuptools>=65"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "GlpiApiHero"
+name = "glpi-api-hero"
 version = "0.1.0"
-description = "Python client to easly communication with GLPI REST API."
+description = "Typed Python client for the GLPI REST API: generic CRUD, search and models of the GLPI itemtypes."
 authors = [
     { name = "André Proto" },
     { name = "Leonardo Fernandes da Silva" }
@@ -14,6 +14,18 @@ keywords = ["GLPI", "ITSM", "helpdesk", "API", "REST", "client"]
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 
 dependencies = [
     "requests>=2.32.4"
@@ -33,6 +45,9 @@ Changelog = "https://github.com/RatadoColab/python-glpi-api-hero/blob/main/CHANG
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+glpi_api_hero = ["py.typed"]
+
 # [project.scripts]
 # python-glpi-api-hero = "python-glpi-api-hero.main:main"
 
@@ -47,11 +62,9 @@ line-length = 120
 select = ["E", "F", "W", "I", "B", "UP", "N"]
 
 [tool.ruff.lint.per-file-ignores]
-# Legacy camelCase names kept until phase 04.1; dashboard moves to examples/ in phase 04.2
-"src/glpi_api_hero/api_communication.py" = ["N802"]
-"src/glpi_api_hero/computer.py" = ["N802"]
-"src/glpi_api_hero/group.py" = ["N802"]
-"src/glpi_api_hero/location.py" = ["N802"]
-"src/glpi_api_hero/ticket.py" = ["N802"]
-"src/glpi_api_hero/user.py" = ["N802"]
+# Dashboard moves to examples/ in phase 04.2
 "src/glpi_api_hero/ticket_dashboard.py" = ["B904", "B905"]
+# Former session API kept for the characterization tests only (phase 04.1, D32)
+"tests/characterization/legacy_session.py" = ["N802"]
+# Examples extend sys.path before importing the library from a checkout
+"examples/**" = ["E402"]
