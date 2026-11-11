@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from glpi_api_hero.core.capabilities import HasCertificates, HasContracts, HasInfocom, HasLogs, HasNotes, HasTickets
+from glpi_api_hero.core.capabilities import (
+    HasCertificates,
+    HasContracts,
+    HasDocuments,
+    HasInfocom,
+    HasLogs,
+    HasNotes,
+    HasTickets,
+)
 
 
-class Domain(HasInfocom, HasContracts, HasCertificates, HasTickets, HasNotes, HasLogs):
+class Domain(HasInfocom, HasContracts, HasDocuments, HasCertificates, HasTickets, HasNotes, HasLogs):
     """GLPI ``Domain`` (Management > Domains)."""
 
     @classmethod

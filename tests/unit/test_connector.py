@@ -563,8 +563,12 @@ def test_download_refuses_a_symlink_that_leaves_the_directory(session: GlpiMock,
     (directory / "report.pdf").symlink_to(outside / "secret.txt")
     session.override("GET", "Document/9", 200, "new",
                      headers={"Content-Disposition": 'attachment; filename="report.pdf"'})
-    with pytest.raises(ValueError):
-        _connector().download_document(9, directory, overwrite=True)
+    with pytest.raises(FileExistsError):
+        _connector().download_document(9, directory)
+    assert not (outside / "secret.txt").exists()
+    # With overwrite the link itself is replaced (never followed): nothing is written outside
+    target = _connector().download_document(9, directory, overwrite=True)
+    assert not target.is_symlink()
     assert not (outside / "secret.txt").exists()
 
 

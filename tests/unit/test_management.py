@@ -11,7 +11,7 @@ import pytest
 from glpi_api_hero import management as mg
 from tests.conftest import GlpiMock
 
-# (id, call, method, path, body input or None)
+# (id, call, expected path of the single GET)
 READS: list[tuple[str, Callable[[], Any], str]] = [
     ("softwarelicense-installations", lambda: mg.SoftwareLicense.get_installations(1),
      "SoftwareLicense/1/Item_SoftwareLicense"),
@@ -130,7 +130,7 @@ def test_download_sanitization_of_an_explicit_name(session: GlpiMock, tmp_path: 
     assert (tmp_path / "x.txt").exists() is False
 
 
-def test_download_sanitization_refuses_to_overwrite_and_leaves_the_file(session: GlpiMock, tmp_path: Path) -> None:
+def test_download_overwrite_flag(session: GlpiMock, tmp_path: Path) -> None:
     """An existing file is kept unless ``overwrite=True``."""
     session.override("GET", "Document/9", 200, "new", headers={"Content-Disposition": 'attachment; filename="a.txt"'})
     (tmp_path / "a.txt").write_text("old")
@@ -141,13 +141,15 @@ def test_download_sanitization_refuses_to_overwrite_and_leaves_the_file(session:
     assert (tmp_path / "a.txt").read_text() == "new"
 
 
-def test_download_sanitization_rejects_a_symlink_out_of_the_directory(session: GlpiMock, tmp_path: Path) -> None:
-    """A symlink named like the file cannot send the bytes elsewhere (``ValueError``)."""
+def test_download_does_not_follow_a_symlink(session: GlpiMock, tmp_path: Path) -> None:
+    """A symlink named like the file is refused or replaced, never followed."""
     outside = tmp_path / "secret.txt"
     directory = tmp_path / "out"
     directory.mkdir()
     (directory / "a.txt").symlink_to(outside)
     session.override("GET", "Document/9", 200, "x", headers={"Content-Disposition": 'attachment; filename="a.txt"'})
-    with pytest.raises(ValueError):
-        mg.Document.download(9, directory, overwrite=True)
+    with pytest.raises(FileExistsError):
+        mg.Document.download(9, directory)
+    mg.Document.download(9, directory, overwrite=True)
     assert not outside.exists()
+    assert not (directory / "a.txt").is_symlink()

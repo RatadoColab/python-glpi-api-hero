@@ -154,3 +154,4 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
 - `Document.download(id, dirpath, filename=None, *, overwrite=False)` keeps only a plain file name, creates the
   file owner-only, raises `ValueError` when the result would leave `dirpath` and `FileExistsError` when the file
   exists and `overwrite` is false (the connector method behaves the same way).
+- Breaking change of the connector: `download_document` no longer overwrites an existing file by default (`overwrite=True` restores it) and raises `ValueError` instead of falling back to `document-<id>` when the target is outside the directory.
