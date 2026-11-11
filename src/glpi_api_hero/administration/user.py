@@ -16,7 +16,15 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
 
     @classmethod
     def get_profiles(cls, user_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna todos os perfis vinculados ao usuário."""
+        """Return the profiles assigned to the user (``Profile_User``).
+
+        Args:
+            user_id: User id.
+            **kwargs: Extra API parameters.
+
+        Returns:
+            The profile rows.
+        """
         return cls.get_sub_items(user_id, "Profile_User", **kwargs)
 
     @classmethod
@@ -34,23 +42,31 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
 
     @classmethod
     def get_groups(cls, user_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna todos os grupos dos quais o usuário faz parte."""
+        """Return the group memberships of the user (``Group_User``).
+
+        Args:
+            user_id: User id.
+            **kwargs: Extra API parameters.
+
+        Returns:
+            The group membership rows.
+        """
         return cls.get_sub_items(user_id, "Group_User", **kwargs)
 
     @classmethod
     def get_tickets(
         cls, user_id: int, actor_type: ActorType = ActorType.REQUESTER, **kwargs: Any
     ) -> list[dict[str, Any]]:
-        """Retorna chamados associados ao usuário conforme o tipo de ator.
+        """Search the tickets of a user in a given role.
 
         Args:
-            user_id (int): ID do usuário no GLPI.
-            actor_type (int): Tipo de ator — ActorType.REQUESTER (1), ActorType.ASSIGNED (2)
-                              ou ActorType.OBSERVER (3). Padrão: REQUESTER.
-            **kwargs: Parâmetros extras repassados à busca (ex: range, sort).
+            user_id: User id.
+            actor_type: Role: ``ActorType.REQUESTER``, ``ActorType.ASSIGNED``
+                              or ``ActorType.OBSERVER``. Default: requester.
+            **kwargs: Extra search parameters (``range``, ``sort``...).
 
         Returns:
-            list: Lista de chamados encontrados.
+            Search rows of the tickets.
         """
         # Delegate to the actor search of the ITIL base; unknown roles keep the requester search
         if actor_type == ActorType.ASSIGNED:
@@ -61,14 +77,14 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
 
     @classmethod
     def get_by_username(cls, username: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca um usuário pelo login (name).
+        """Search a user by login.
 
         Args:
-            username (str): Login do usuário no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            username: Login of the user.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de usuários encontrados.
+            Search rows of the users.
         """
         criteria = [
             {
@@ -81,14 +97,14 @@ class User(HasDocuments, HasCertificates, HasLogs, CommonDBTM):
 
     @classmethod
     def get_by_email(cls, email: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca um usuário pelo e-mail.
+        """Search a user by e-mail.
 
         Args:
-            email (str): Endereço de e-mail do usuário.
-            **kwargs: Parâmetros extras repassados à busca.
+            email: E-mail address.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de usuários encontrados.
+            Search rows of the users.
         """
         criteria = [
             {

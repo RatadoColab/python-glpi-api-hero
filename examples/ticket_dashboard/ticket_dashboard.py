@@ -5,13 +5,13 @@ from glpi_api_hero import CommonDBTM, Glpi
 
 
 class TicketDashboard(CommonDBTM):
-    """Dashboard visual de chamados GLPI por período e categoria ITIL.
+    """Visual dashboard of GLPI tickets by period and ITIL category.
 
-    Gera um arquivo HTML interativo (ou PNG/SVG estático) com:
-    - 6 cards de KPIs: total, fechados, solucionados, abertos, SLA hoje, SLA vencido
-    - Gráfico de barras horizontais empilhadas por categoria
-    - Gráfico de rosca com distribuição percentual por categoria
-    - Tabela detalhada por categoria
+    Generates an interactive HTML file (or a static PNG/SVG) with:
+    - 6 KPI cards: total, closed, solved, open, SLA due today, SLA overdue
+    - Stacked horizontal bar chart by category
+    - Donut chart with the percentage distribution by category
+    - Detailed table by category
 
     Exemplo:
 
@@ -36,7 +36,7 @@ class TicketDashboard(CommonDBTM):
 
     _glpi_name = "Ticket"
 
-    # Códigos dos Status de Tickets do GLPI.
+    # GLPI ticket status codes.
     STATUS_NOVO      = 1
     STATUS_ATRIB     = 2
     STATUS_PLANEJ    = 3
@@ -44,11 +44,11 @@ class TicketDashboard(CommonDBTM):
     STATUS_RESOLVIDO = 5
     STATUS_FECHADO   = 6
 
-    # Field IDs padrão do GLPI para Ticket.
+    # Default GLPI field ids for Ticket.
     FIELD_STATUS    = 12
     FIELD_CATEGORIA = 7    # itilcategories_id
     FIELD_ABERTURA  = 15
-    FIELD_PRAZO     = 18   # time_to_resolve — usado para cálculo do SLA.
+    FIELD_PRAZO     = 18   # time_to_resolve, used for the SLA calculation.
 
     _CARD_COLORS = ["#1a6b3c", "#1c2e4a", "#4a3080", "#1a7dc4", "#c48a00", "#c94040"]
 
@@ -77,7 +77,7 @@ class TicketDashboard(CommonDBTM):
 
     @classmethod
     def _base(cls, date_from: str, date_to: str, cat_id: int = None) -> list:
-        """Critérios de busca."""
+        """Search criteria."""
         crit = [
             {"field": cls.FIELD_ABERTURA, "searchtype": "morethan", "value": date_from},
             {"field": cls.FIELD_ABERTURA, "searchtype": "lessthan",  "value": date_to,  "link": "AND"},
@@ -90,9 +90,9 @@ class TicketDashboard(CommonDBTM):
 
     @classmethod
     def _base_sla(cls, cat_id: int = None) -> list:
-        """Critérios base para SLA: sem filtro de data de abertura.
+        """Base criteria for the SLA: no filter on the opening date.
 
-        SLA vencido/hoje considera todos os tickets, independente de quando
+        SLA overdue/today considers every ticket, regardless of when
         foram criados.
         """
         if cat_id is not None:
@@ -105,7 +105,7 @@ class TicketDashboard(CommonDBTM):
 
     @classmethod
     def _crit_sla_vencido(cls) -> list:
-        # SLA vencido = prazo passou, independente de status (aberto, fechado ou resolvido).
+        # SLA overdue = deadline passed, regardless of status (open, closed or solved).
         today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return [
             {"field": cls.FIELD_PRAZO, "searchtype": "lessthan", "value": today, "link": "AND"},
@@ -125,7 +125,7 @@ class TicketDashboard(CommonDBTM):
 
     @classmethod
     def diagnose(cls, date_from: str, date_to: str, cat_id: int = None) -> None:
-        """Imprime as URLs e totais de cada consulta para depuração.
+        """Print the URLs and totals of each query for debugging.
 
         Util para verificar se os field IDs e criterios estao corretos.
 
@@ -179,7 +179,7 @@ class TicketDashboard(CommonDBTM):
         )
 
     # ------------------------------------------------------------------
-    # Método para coleta de dados.
+    # Data collection.
     # ------------------------------------------------------------------
 
     @classmethod
@@ -189,19 +189,19 @@ class TicketDashboard(CommonDBTM):
         date_to: str,
         categories: dict | None = None,
     ) -> dict:
-        """Coleta métricas de chamados do GLPI para o período informado.
+        """Collect ticket metrics from GLPI for the given period.
 
         Args:
             date_from:  Data inicial no formato YYYY-MM-DD (inclusive).
-            date_to:    Data final no formato YYYY-MM-DD (exclusiva: chamados do último dia não entram).
+            date_to:    End date as YYYY-MM-DD (exclusive: tickets of the last day are not counted).
             categories: Mapeamento {nome_exibicao: glpi_itilcategory_id}.
                         Ex.: {"Infraestrutura": 3, "Sistemas": 5}.
-                        Se None, retorna apenas totais globais.
+            If None, only the global totals are returned.
 
         Returns:
-            dict com chaves: total, fechados, solucionados, abertos,
-            sla_hoje, sla_vencido e categorias (dict aninhado por categoria
-            com as mesmas métricas).
+            dict with keys: total, fechados, solucionados, abertos,
+            sla_hoje, sla_vencido and categorias (nested dict by category
+            with the same metrics).
         """
         result = cls._metrics(date_from, date_to)
         categorias = {}
@@ -212,7 +212,7 @@ class TicketDashboard(CommonDBTM):
         return result
 
     # ------------------------------------------------------------------
-    # Método para geração do dashboard.
+    # Dashboard generation.
     # ------------------------------------------------------------------
 
     @classmethod
@@ -225,7 +225,7 @@ class TicketDashboard(CommonDBTM):
         titulo: str = "DTI",
         data: dict | None = None,
     ) -> str:
-        """Gera o dashboard de chamados GLPI em HTML ou imagem.
+        """Generate the ticket dashboard as HTML or image.
 
         Args:
             date_from:   Data inicial YYYY-MM-DD.
@@ -249,7 +249,7 @@ class TicketDashboard(CommonDBTM):
             import plotly.io as pio
         except ImportError:
             raise ImportError(
-                "É necessário instalar a biblioteca plotly."
+                "The plotly library must be installed."
             )
 
         if data is None:
@@ -266,11 +266,11 @@ class TicketDashboard(CommonDBTM):
 
         # Stacked horizontal bar chart (esquerda)
         bar_defs = [
-            ("fechados",     "Fechados",      cls._BAR_COLORS["fechados"]),
-            ("solucionados", "Solucionados",  cls._BAR_COLORS["solucionados"]),
-            ("abertos",      "Abertos",       cls._BAR_COLORS["abertos"]),
-            ("sla_hoje",     "Vencendo Hoje", cls._BAR_COLORS["sla_hoje"]),
-            ("sla_vencido",  "SLA Vencido",   cls._BAR_COLORS["sla_vencido"]),
+            ("fechados",     "Closed",      cls._BAR_COLORS["fechados"]),
+            ("solucionados", "Solved",  cls._BAR_COLORS["solucionados"]),
+            ("abertos",      "Open",       cls._BAR_COLORS["abertos"]),
+            ("sla_hoje",     "Due Today", cls._BAR_COLORS["sla_hoje"]),
+            ("sla_vencido",  "SLA Overdue",   cls._BAR_COLORS["sla_vencido"]),
         ]
 
         for key, label, color in bar_defs:
@@ -320,8 +320,8 @@ class TicketDashboard(CommonDBTM):
                 domain={"x": [0.54, 0.98], "y": [0.0, 0.38]},
                 header=dict(
                     values=[
-                        "<b>Categoria</b>", "<b>Abertos</b>", "<b>SLA Vencido</b>",
-                        "<b>Venc. Hoje</b>", "<b>Solucionados</b>", "<b>Fechados</b>",
+                        "<b>Category</b>", "<b>Open</b>", "<b>SLA Overdue</b>",
+                        "<b>Due Today</b>", "<b>Solved</b>", "<b>Closed</b>",
                         "<b>Total</b>",
                     ],
                     fill_color="#e8e8e8",
@@ -366,8 +366,8 @@ class TicketDashboard(CommonDBTM):
         ))
 
         # KPI cards
-        kpi_labels = ["N Chamados",   "Fechados",    "Solucionados",
-                      "Abertos",      "SLA Venc. Hoje", "SLA Vencido"]
+        kpi_labels = ["Tickets",   "Closed",    "Solved",
+                      "Open",      "SLA Due Today", "SLA Overdue"]
         kpi_keys   = ["total",        "fechados",    "solucionados",
                       "abertos",      "sla_hoje",       "sla_vencido"]
         kpi_vals   = [data[k] for k in kpi_keys]
@@ -444,15 +444,15 @@ class TicketDashboard(CommonDBTM):
         leg_y   = -0.055   # centro vertical das legendas (abaixo de y=0)
         sq_h    = 0.030    # altura do quadrado de cor em coords de papel
         sq_w    = 0.018    # largura do quadrado
-        gap_txt = 0.006    # espaço entre quadrado e texto
+        gap_txt = 0.006    # space between square and text
 
-        # Legenda de status (gráfico de barras) — lado esquerdo [0.0, 0.50]
+        # Status legend (bar chart): left side [0.0, 0.50]
         bar_legend_items = [
-            ("Fechados",      cls._BAR_COLORS["fechados"]),
-            ("Solucionados",  cls._BAR_COLORS["solucionados"]),
-            ("Abertos",       cls._BAR_COLORS["abertos"]),
-            ("Vencendo Hoje", cls._BAR_COLORS["sla_hoje"]),
-            ("SLA Vencido",   cls._BAR_COLORS["sla_vencido"]),
+            ("Closed",      cls._BAR_COLORS["fechados"]),
+            ("Solved",  cls._BAR_COLORS["solucionados"]),
+            ("Open",       cls._BAR_COLORS["abertos"]),
+            ("Due Today", cls._BAR_COLORS["sla_hoje"]),
+            ("SLA Overdue",   cls._BAR_COLORS["sla_vencido"]),
         ]
         n_bar      = len(bar_legend_items)
         item_w_bar = 0.50 / n_bar
