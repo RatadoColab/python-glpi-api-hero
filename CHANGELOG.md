@@ -12,6 +12,8 @@
 - Documentation, examples and code comments in English.
 
 ### Changed
+- Redirects from the GLPI server are no longer followed, so access tokens can never be sent to another host. Use the final API URL (for example https instead of http).
+- Connection URLs with a user name or password, a query or a fragment are refused, and plain http URLs raise a warning.
 - The conversion of a specific catalog of organizational units is no longer part of the library; it is now an example.
   Callers that used the bulk update with that format must pass the mapper from the example.
 - The microservices and the Docker files are now examples, in the examples folder.

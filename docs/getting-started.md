@@ -32,6 +32,9 @@ finally:
     Glpi.disconnect()
 ```
 
+The API URL must be absolute (`http://` or `https://`), without credentials, query or fragment. Redirects are not
+followed (tokens must never reach another host): configure the final URL. Plain `http` raises a warning.
+
 ## Profile and entity
 
 ```python

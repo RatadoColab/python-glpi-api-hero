@@ -97,7 +97,7 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
     channel.queue_declare(queue=DLQ, durable=True)
     channel.queue_bind(queue=DLQ, exchange=DLX)
 
-    # Fila principal
+    # Main queue
     channel.exchange_declare(exchange=EXCHANGE, exchange_type='direct', durable=True)
     channel.queue_declare(
         queue=QUEUE,
@@ -118,6 +118,18 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
         },
     )
     channel.queue_bind(queue=RETRY_QUEUE, exchange=RETRY_EXCHANGE, routing_key=ROUTING_KEY)
+
+
+def _reject_constant(name: str) -> None:
+    """Refuse NaN and Infinity, which cannot be sent to GLPI as JSON.
+
+    Args:
+        name: The constant found in the message.
+
+    Raises:
+        ValueError: Always.
+    """
+    raise ValueError(f"unsupported JSON constant: {name}")
 
 
 def _process(unit: dict) -> None:
@@ -146,8 +158,8 @@ def _on_message(
     - Any other error     -> nack without requeue (permanent error, goes to the DLQ).
     """
     try:
-        unit = json.loads(body)
-    except json.JSONDecodeError as exc:
+        unit = json.loads(body, parse_constant=_reject_constant)
+    except (ValueError, RecursionError) as exc:
         print(f"[MESSAGE ERROR] invalid body: {exc}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         return
@@ -187,7 +199,7 @@ def _on_message(
 
     except Exception as exc:
         # Permanent error (invalid data): send to the DLQ, do not reprocess.
-        print(f"[ERRO PERMANENTE] {label}: {exc}")
+        print(f"[PERMANENT ERROR] {label}: {exc}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
