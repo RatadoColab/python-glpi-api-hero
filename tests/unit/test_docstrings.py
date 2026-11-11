@@ -1,4 +1,4 @@
-"""Every public method of the exported models has a complete Google-style docstring."""
+"""Every public class method of the exported models has a Google-style docstring (sections by signature)."""
 
 from __future__ import annotations
 

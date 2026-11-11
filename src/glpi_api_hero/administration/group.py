@@ -97,7 +97,7 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
         """Search a group by name.
 
         Args:
-            name (str): Nome do grupo no GLPI.
+            name: Name of the group.
             **kwargs: Extra search parameters.
 
         Returns:

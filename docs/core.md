@@ -11,9 +11,9 @@ Base of every model (`glpi_api_hero.core.common_dbtm`). Return values do not dep
 | `search(criteria, forcedisplay=None, metacriteria=None, **params)` | `list[dict]` rows indexed by field id |
 | `add(data)` / `add_many(items)` | `int` / `list[int]` |
 | `update(id, data)` / `update_many(items)` | `None` |
-| `delete(id, force_purge=False)` / `delete_many(ids)` | `None` |
+| `delete(items_id, *, force_purge=False, history=True)` / `delete_many(ids, *, force_purge=False, history=True)` | `None` |
 | `get_sub_items(id, sub_itemtype)`, `add_sub_item`, `update_sub_item`, `delete_sub_item` | sub-item operations |
-| `search_options()`, `field_id(uid)`, `field_uid(id)` | search option helpers |
+| `search_options(raw=False)`, `field_id(uid, refresh=False)`, `field_uid(field_id, refresh=False)` | search option helpers |
 
 Search criteria: `[{"field": 1, "searchtype": "contains", "value": "srv"}]`. Input dicts are never modified.
 
