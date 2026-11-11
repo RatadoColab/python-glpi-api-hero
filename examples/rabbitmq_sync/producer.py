@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-# Importando bibliotecas necessárias para a interação com o RabbitMQ.
+# Libraries needed to talk to RabbitMQ.
 import pika
 from dotenv import load_dotenv
 
@@ -32,8 +32,8 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
     """Declara exchanges, filas e bindings no RabbitMQ.
 
     Cria primeiro a infraestrutura de dead-letter (DLX/DLQ) para que a fila
-    principal já seja declarada com o argumento x-dead-letter-exchange apontando
-    para o DLX. Mensagens rejeitadas ou expiradas são redirecionadas ao DLQ.
+    the main queue must already be declared with the x-dead-letter-exchange argument pointing
+    to the DLX. Rejected or expired messages are redirected to the DLQ.
     """
     # Dead-letter exchange (fanout) e fila de descarte
     channel.exchange_declare(exchange=DLX, exchange_type='fanout', durable=True)
@@ -63,10 +63,10 @@ def load_records() -> list:
 def publish(units: list) -> None:
     """Publica cada unidade organizacional como uma mensagem separada no RabbitMQ.
 
-    Abre uma conexão bloqueante, garante a topologia via _declare_topology e
+    Opens a blocking connection, ensures the topology through _declare_topology and
     itera sobre a lista publicando cada item serializado como JSON. As mensagens
-    são marcadas como persistentes (delivery_mode=Persistent) para sobreviver a
-    reinicializações do broker. A conexão é fechada ao final, independente do
+    are marked persistent (delivery_mode=Persistent) to survive
+    broker restarts. The connection is closed at the end, regardless of the
     tamanho da lista.
     """
     connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))

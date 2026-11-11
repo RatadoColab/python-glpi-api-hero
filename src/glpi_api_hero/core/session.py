@@ -107,6 +107,9 @@ class Glpi:
 
         Yields:
             The ``Glpi`` class.
+
+        Raises:
+            BaseException: Whatever the block raises, after the session is closed.
         """
         cls.connect(url, app_token, **kwargs)
         try:

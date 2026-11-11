@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-# Importando bibliotecas necessárias para a interação com o RabbitMQ.
+# Libraries needed to talk to RabbitMQ.
 import pika
 from dotenv import load_dotenv
 
@@ -51,9 +51,9 @@ _missing = [k for k, v in {'GLPI_URL': GLPI_URL, 'GLPI_APPTOKEN': GLPI_APPTOKEN,
                              'GLPI_USER': GLPI_USER, 'GLPI_PASSWD': GLPI_PASSWD}.items() if not v]
 if _missing:
     raise OSError(f"Required variables missing from .env: {', '.join(_missing)}")
-# Delay entre mensagens (segundos) — throttle proativo para não atingir o rate limit
+# Delay between messages (seconds): proactive throttle to stay under the rate limit
 GLPI_REQUEST_DELAY = float(os.getenv('GLPI_REQUEST_DELAY', '0.5'))
-# Tempo que a mensagem fica na fila de retry antes de voltar para a fila principal (ms)
+# Time a message waits in the retry queue before going back to the main queue (ms)
 GLPI_RETRY_DELAY_MS = int(os.getenv('GLPI_RETRY_DELAY_MS', '30000'))
 
 
@@ -73,10 +73,10 @@ MAPPER = _load_mapper()
 
 
 def _connect_glpi() -> None:
-    """Configura e abre uma sessão autenticada no GLPI.
+    """Configure and open an authenticated GLPI session.
 
-    Define os parâmetros de conexão (URL, app token, usuário e senha), inicia
-    a sessão e seleciona o perfil e entidade indicados nas variáveis de ambiente.
+    Sets the connection parameters (URL, app token, user and password), starts
+    the session and selects the profile and entity given in the environment variables.
     Deve ser chamada uma vez antes de iniciar o consumo da fila.
     """
     Glpi.connect(GLPI_URL, GLPI_APPTOKEN, username=GLPI_USER, password=GLPI_PASSWD)
@@ -84,13 +84,13 @@ def _connect_glpi() -> None:
 
 
 def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel) -> None:
-    """Declara exchanges, filas e bindings necessários para o fluxo de mensagens.
+    """Declare the exchanges, queues and bindings of the message flow.
 
-    Cria três camadas:
+    Three layers are created:
     - DLX/DLQ: recebe mensagens com erro permanente (nack sem requeue).
     - Fila principal (QUEUE): fila de trabalho, com DLX configurado para desvio em caso de falha.
     - Fila de retry (RETRY_QUEUE): recebe mensagens com rate-limit; o TTL definido por
-      GLPI_RETRY_DELAY_MS faz o RabbitMQ devolvê-las automaticamente à fila principal.
+      GLPI_RETRY_DELAY_MS makes RabbitMQ return them to the main queue automatically.
     """
     # DLQ — mensagens com erro permanente
     channel.exchange_declare(exchange=DLX, exchange_type='fanout', durable=True)
@@ -106,7 +106,7 @@ def _declare_topology(channel: pika.adapters.blocking_connection.BlockingChannel
     )
     channel.queue_bind(queue=QUEUE, exchange=EXCHANGE, routing_key=ROUTING_KEY)
 
-    # Fila de retry com TTL — após GLPI_RETRY_DELAY_MS a mensagem volta para a fila principal
+    # Retry queue with TTL: after GLPI_RETRY_DELAY_MS the message goes back to the main queue
     channel.exchange_declare(exchange=RETRY_EXCHANGE, exchange_type='direct', durable=True)
     channel.queue_declare(
         queue=RETRY_QUEUE,
@@ -140,15 +140,15 @@ def _on_message(
     """Callback invocado pelo Pika para cada mensagem recebida da fila principal.
 
     Fluxo de tratamento de erros:
-    - JSON inválido       → nack sem requeue (vai para a DLQ imediatamente).
+    - Invalid JSON        -> nack without requeue (goes straight to the DLQ).
     - RateLimitError   → republica na RETRY_QUEUE com TTL e faz ack da mensagem original.
-    - GlpiConnectionError  → nack com requeue e para o consumer (espera reinício externo).
-    - Qualquer outro erro → nack sem requeue (erro permanente, vai para a DLQ).
+    - GlpiConnectionError -> nack with requeue and stop the consumer (an external restart is expected).
+    - Any other error     -> nack without requeue (permanent error, goes to the DLQ).
     """
     try:
         unit = json.loads(body)
     except json.JSONDecodeError as exc:
-        print(f"[ERRO MENSAGEM] corpo inválido: {exc}")
+        print(f"[MESSAGE ERROR] invalid body: {exc}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         return
 
@@ -161,9 +161,9 @@ def _on_message(
 
     except RateLimitError as exc:
         # Rate limit atingido: republica na fila de retry e aguarda o TTL expirar.
-        # O RabbitMQ devolve a mensagem à fila principal automaticamente após GLPI_RETRY_DELAY_MS.
+        # RabbitMQ returns the message to the main queue automatically after GLPI_RETRY_DELAY_MS.
         delay_s = GLPI_RETRY_DELAY_MS // 1000
-        print(f"[RATE LIMIT] {label} — voltará à fila em {delay_s}s: {exc}")
+        print(f"[RATE LIMIT] {label} - back in the queue in {delay_s}s: {exc}")
         channel.basic_publish(
             exchange=RETRY_EXCHANGE,
             routing_key=ROUTING_KEY,
@@ -173,14 +173,14 @@ def _on_message(
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
     except GlpiConnectionError as exc:
-        # GLPI indisponível: devolve à fila e encerra o consumer.
-        # O gerenciador de processos (Docker restart, systemd) deve reiniciá-lo.
-        print(f"[GLPI INDISPONÍVEL] {exc}")
+        # GLPI unavailable: put the message back in the queue and stop the consumer.
+        # The process manager (Docker restart, systemd) is expected to restart it.
+        print(f"[GLPI UNAVAILABLE] {exc}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
         channel.stop_consuming()
 
     except Exception as exc:
-        # Erro permanente (dado inválido): envia para a DLQ, não reprocessa.
+        # Permanent error (invalid data): send to the DLQ, do not reprocess.
         print(f"[ERRO PERMANENTE] {label}: {exc}")
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
@@ -189,12 +189,12 @@ def consume() -> None:
     """Inicia o loop de consumo: conecta ao GLPI, ao RabbitMQ e processa mensagens indefinidamente.
 
     Configura prefetch_count=1 para garantir processamento um a um (sem sobrecarga do GLPI).
-    Ao encerrar (CTRL+C ou stop_consuming interno), fecha a conexão com o RabbitMQ e
-    encerra a sessão GLPI. Erros de conexão ao encerrar a sessão GLPI são silenciados,
-    pois o processo está sendo finalizado de qualquer forma.
+    On exit (CTRL+C or an internal stop_consuming), closes the RabbitMQ connection and
+    ends the GLPI session. Connection errors while ending the GLPI session are ignored,
+    because the process is shutting down anyway.
     """
     _connect_glpi()
-    print("Sessão GLPI iniciada.")
+    print("GLPI session started.")
 
     connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
     channel = connection.channel()

@@ -23,18 +23,18 @@ class Location(CommonTreeDropdown):
     # Search option of the location where it is not 3 (GLPI 10 rawSearchOptions)
     _ITEMTYPE_LOCATION_FIELDS: ClassVar[dict[str, int]] = {"Ticket": 83}
 
-    # Métodos de busca ################################
+    # Lookups
 
     @classmethod
     def get_by_code(cls, code: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca uma localização pelo código externo (campo code).
+        """Search a location by its external code (``code`` field).
 
         Args:
-            code: Valor do campo code no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            code: Value of the ``code`` field.
+            **kwargs: Extra search parameters.
 
         Returns:
-            dict: Resultado da busca retornado pela API.
+            Search rows indexed by field id.
         """
         criteria = [
             {
@@ -45,18 +45,18 @@ class Location(CommonTreeDropdown):
         ]
         return cls.search(criteria, **kwargs)
 
-    # Métodos de itens na localização ################################
+    # Items in the location
 
     @classmethod
     def get_computers(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna os computadores associados à localização.
+        """Return the computers placed in the location.
 
         Args:
-            location_id (int): ID da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            location_id: Location id.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de computadores na localização.
+            Search rows of the computers.
         """
         criteria = [
             {
@@ -69,14 +69,14 @@ class Location(CommonTreeDropdown):
 
     @classmethod
     def get_network_equipments(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna os equipamentos de rede associados à localização.
+        """Return the network equipment placed in the location.
 
         Args:
-            location_id (int): ID da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            location_id: Location id.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de equipamentos de rede na localização.
+            Search rows of the network equipment.
         """
         criteria = [
             {
@@ -111,14 +111,14 @@ class Location(CommonTreeDropdown):
 
     @classmethod
     def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna os chamados associados à localização.
+        """Return the tickets of the location.
 
         Args:
-            location_id (int): ID da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            location_id: Location id.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de chamados na localização.
+            Search rows of the tickets.
         """
         criteria = [
             {
@@ -131,14 +131,14 @@ class Location(CommonTreeDropdown):
 
     @classmethod
     def get_users(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna os usuários associados à localização.
+        """Return the users of the location.
 
         Args:
-            location_id (int): ID da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            location_id: Location id.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de usuários na localização.
+            Search rows of the users.
         """
         criteria = [
             {
@@ -149,7 +149,7 @@ class Location(CommonTreeDropdown):
         ]
         return User.search(criteria, **kwargs)
 
-    # Métodos de criação ################################
+    # Bulk creation
 
     @classmethod
     def add_from_list(
@@ -206,12 +206,15 @@ class Location(CommonTreeDropdown):
 
         Returns:
             list: Operation results (one entry per processed item).
+
+        Raises:
+            GlpiAPIError: When GLPI refuses a creation for a reason other than a duplicate entry.
         """
         # Nothing to process: no request is needed
         if not items:
             return []
 
-        # get_all returns full objects with a direct 'id' — no field ID ambiguity
+        # get_all returns full objects with a direct id (no field id ambiguity)
         all_locations = cls.get_all(range="0-9999")
         if not isinstance(all_locations, list):
             all_locations = []
@@ -254,17 +257,17 @@ class Location(CommonTreeDropdown):
                         raise
         return results
 
-    # Métodos de logs ################################
+    # History
 
     @classmethod
     def get_logs(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna o histórico de alterações da localização.
+        """Return the change history of the location.
 
         Args:
-            location_id (int): ID da localização no GLPI.
-            **kwargs: Parâmetros extras repassados à chamada.
+            location_id: Location id.
+            **kwargs: Extra API parameters.
 
         Returns:
-            list: Histórico de logs da localização.
+            The history rows.
         """
         return cls.get_sub_items(location_id, "Log", **kwargs)

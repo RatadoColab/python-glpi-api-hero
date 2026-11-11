@@ -16,27 +16,27 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
 
     @classmethod
     def get_users(cls, group_id: int, **kwargs: Any) -> list[dict[str, Any]]:
-        """Retorna todos os usuários vinculados ao grupo.
+        """Return the members of the group (``Group_User``).
 
         Args:
-            group_id (int): ID do grupo no GLPI.
-            **kwargs: Parâmetros extras repassados à chamada (ex: range).
+            group_id: Group id.
+            **kwargs: Extra API parameters (``range``...).
 
         Returns:
-            list: Lista de registros Group_User.
+            The ``Group_User`` rows.
         """
         return cls.get_sub_items(group_id, "Group_User", **kwargs)
 
     @classmethod
     def add_user(cls, group_id: int, user_id: int) -> int:
-        """Adiciona um usuário ao grupo criando um vínculo Group_User.
+        """Add a user to the group (creates a ``Group_User`` link).
 
         Args:
-            group_id (int): ID do grupo no GLPI.
-            user_id (int): ID do usuário no GLPI.
+            group_id: Group id.
+            user_id: User id.
 
         Returns:
-            list: Resultado da operação retornado pela API.
+            The id of the new link.
         """
         return CommonDBTM._for("Group_User").add(
             {
@@ -47,24 +47,24 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
 
     @classmethod
     def delete_user(cls, group_id: int, user_id: int) -> None:
-        """Remove um usuário do grupo excluindo o vínculo Group_User.
+        """Remove a user from the group (deletes the ``Group_User`` link).
 
-        Localiza o registro Group_User pelo group_id e user_id antes de deletar.
+        The ``Group_User`` row is looked up by group and user before it is deleted.
 
         Args:
-            group_id (int): ID do grupo no GLPI.
-            user_id (int): ID do usuário no GLPI.
+            group_id: Group id.
+            user_id: User id.
 
         Returns:
-            list | None: Resultado da deleção ou None se o vínculo não for encontrado.
+            ``None`` always (also when the user was not a member).
         """
         # The whole membership is read: the default page would hide members beyond it
-        membros = cls.get_users(group_id, range="0-9999")
-        if not membros:
+        members = cls.get_users(group_id, range="0-9999")
+        if not members:
             return None
 
         link_id = next(
-            (m["id"] for m in membros if m.get("users_id") == user_id),
+            (m["id"] for m in members if m.get("users_id") == user_id),
             None,
         )
         if link_id is None:
@@ -76,16 +76,16 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
     def get_tickets(
         cls, group_id: int, actor_type: ActorType = ActorType.ASSIGNED, **kwargs: Any
     ) -> list[dict[str, Any]]:
-        """Retorna chamados associados ao grupo conforme o tipo de ator.
+        """Search the tickets of a group in a given role.
 
         Args:
-            group_id (int): ID do grupo no GLPI.
-            actor_type (int): Tipo de ator — ActorType.REQUESTER (1), ActorType.ASSIGNED (2)
-                              ou ActorType.OBSERVER (3). Padrão: ASSIGNED.
-            **kwargs: Parâmetros extras repassados à busca (ex: range, sort).
+            group_id: Group id.
+            actor_type: Role: ``ActorType.REQUESTER``, ``ActorType.ASSIGNED``
+                              or ``ActorType.OBSERVER``. Default: assigned.
+            **kwargs: Extra search parameters (``range``, ``sort``...).
 
         Returns:
-            list: Lista de chamados encontrados.
+            Search rows of the tickets.
         """
         # Delegate to the actor search of the ITIL base; unknown roles keep the assigned-group search
         if actor_type not in tuple(ActorType):
@@ -94,14 +94,14 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
 
     @classmethod
     def get_by_name(cls, name: str, **kwargs: Any) -> list[dict[str, Any]]:
-        """Busca um grupo pelo nome.
+        """Search a group by name.
 
         Args:
             name (str): Nome do grupo no GLPI.
-            **kwargs: Parâmetros extras repassados à busca.
+            **kwargs: Extra search parameters.
 
         Returns:
-            list: Lista de grupos encontrados.
+            Search rows of the groups.
         """
         criteria = [
             {
