@@ -43,6 +43,19 @@ REGISTRY: list[tuple[str, str, str]] = [
     ("management", "Domain", "Domain"),
     ("management", "Appliance", "Appliance"),
     ("management", "DatabaseInstance", "DatabaseInstance"),
+    ("tools", "Project", "Project"),
+    ("tools", "Reminder", "Reminder"),
+    ("tools", "RSSFeed", "RSSFeed"),
+    ("tools", "KnowbaseItem", "KnowbaseItem"),
+    ("tools", "ReservationItem", "ReservationItem"),
+    ("tools", "SavedSearch", "SavedSearch"),
+    ("administration", "Entity", "Entity"),
+    ("administration", "Profile", "Profile"),
+    ("dropdowns", "ITILCategory", "ITILCategory"),
+    ("dropdowns", "State", "State"),
+    ("dropdowns", "Manufacturer", "Manufacturer"),
+    ("assistance", "TicketRecurrent", "TicketRecurrent"),
+    ("assistance", "RecurrentChange", "RecurrentChange"),
     ("components", "DeviceSimcard", "DeviceSimcard"),
     ("assistance", "Ticket", "Ticket"),
     ("assistance", "Change", "Change"),
@@ -92,3 +105,27 @@ def test_every_exported_model_is_registered(subpackage: str) -> None:
     exported = set(importlib.import_module(f"glpi_api_hero.{subpackage}").__all__)
     registered = {name for sub, name, _ in REGISTRY if sub == subpackage}
     assert exported == registered
+
+
+# Canonical list: the revised R5 (D4): KnowbaseItem, Datacenter and DeviceSimcard replace the divergent names,
+# plus the extras of D4 (ConsumableItem, PassiveDCEquipment, Unmanaged, Contact, Document, Line, TicketRecurrent,
+# RecurrentChange, SavedSearch, State, Manufacturer). ``Database``, ``DomainRecord`` and ``ProjectTask`` are
+# sub-items checked through the methods of their parents.
+CANONICAL = {
+    "Computer", "Monitor", "Software", "NetworkEquipment", "Peripheral", "Printer", "CartridgeItem",
+    "ConsumableItem", "Phone", "Rack", "Enclosure", "PDU", "PassiveDCEquipment", "Unmanaged", "Cable",
+    "DeviceSimcard", "Ticket", "Change", "Problem", "TicketRecurrent", "RecurrentChange", "SoftwareLicense",
+    "Budget", "Supplier", "Contact", "Contract", "Document", "Line", "Certificate", "Datacenter", "Cluster",
+    "Domain", "Appliance", "DatabaseInstance", "Project", "Reminder", "RSSFeed", "KnowbaseItem", "ReservationItem",
+    "SavedSearch", "User", "Group", "Entity", "Profile", "Location", "ITILCategory", "State", "Manufacturer",
+}
+SUB_ITEM_METHODS = [("management", "DatabaseInstance", "get_databases"), ("management", "Domain", "get_records"),
+                    ("tools", "Project", "get_tasks")]
+
+
+def test_full_list_coverage() -> None:
+    """Every itemtype of the revised R5 list has a typed class, and the sub-items have methods in their parent."""
+    registered = {name for _, name, _ in REGISTRY}
+    assert CANONICAL - registered == set()
+    for subpackage, name, method in SUB_ITEM_METHODS:
+        assert callable(getattr(_model(subpackage, name), method)), f"{name}.{method}"

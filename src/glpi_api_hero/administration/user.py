@@ -1,11 +1,12 @@
 from typing import Any
 
 from glpi_api_hero.assistance.ticket import Ticket
+from glpi_api_hero.core.capabilities import HasCertificates, HasDocuments
 from glpi_api_hero.core.common_dbtm import CommonDBTM
 from glpi_api_hero.core.constants import ActorType
 
 
-class User(CommonDBTM):
+class User(HasDocuments, HasCertificates, CommonDBTM):
     """GLPI users (Administration > Users)."""
 
     # Search option ids of the User itemtype (GLPI 10 rawSearchOptions)
@@ -17,6 +18,19 @@ class User(CommonDBTM):
     def get_profiles(cls, user_id: int, **kwargs: Any) -> list[dict[str, Any]]:
         """Retorna todos os perfis vinculados ao usuário."""
         return cls.get_sub_items(user_id, "Profile_User", **kwargs)
+
+    @classmethod
+    def get_emails(cls, user_id: int, **params: Any) -> list[dict[str, Any]]:
+        """Return the e-mail addresses of the user (``UserEmail``).
+
+        Args:
+            user_id: User id.
+            **params: Extra API parameters.
+
+        Returns:
+            The rows.
+        """
+        return cls.get_sub_items(user_id, "UserEmail", **params)
 
     @classmethod
     def get_groups(cls, user_id: int, **kwargs: Any) -> list[dict[str, Any]]:

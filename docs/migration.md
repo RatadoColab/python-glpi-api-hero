@@ -155,3 +155,13 @@ searches by actor (`get_by_requester`, `get_by_assigned`, `get_by_observer`, `ge
   file owner-only, raises `ValueError` when the result would leave `dirpath` and `FileExistsError` when the file
   exists and `overwrite` is false (the connector method behaves the same way).
 - Breaking change of the connector: `download_document` no longer overwrites an existing file by default (`overwrite=True` restores it) and raises `ValueError` instead of falling back to `document-<id>` when the target is outside the directory.
+
+## Tools, administration, dropdowns and recurrent items
+
+- New models: `tools` (`Project`, `Reminder`, `RSSFeed`, `KnowbaseItem`, `ReservationItem`, `SavedSearch`),
+  `administration` (`Entity`, `Profile`), `dropdowns` (`ITILCategory`, `State`, `Manufacturer`) and `assistance`
+  (`TicketRecurrent`, `RecurrentChange`).
+- `Location`, `Group`, `Entity`, `ITILCategory` and `State` share `CommonTreeDropdown`: `get_by_name`,
+  `get_by_complete_name`, `get_children` and `get_roots` (search options 14, 1 and 13).
+- `Reminder.get_targets` and `KnowbaseItem.get_targets` return the relation rows with `kind` and `target_id`.
+- `Location.get_items_by_type(location_id, itemtype)` searches the items of any itemtype by location.

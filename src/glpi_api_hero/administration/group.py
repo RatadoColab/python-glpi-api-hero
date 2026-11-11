@@ -1,11 +1,13 @@
 from typing import Any
 
 from glpi_api_hero.assistance.ticket import Ticket
+from glpi_api_hero.core.capabilities import HasNotes
 from glpi_api_hero.core.common_dbtm import CommonDBTM
+from glpi_api_hero.core.common_tree_dropdown import CommonTreeDropdown
 from glpi_api_hero.core.constants import ActorType
 
 
-class Group(CommonDBTM):
+class Group(CommonTreeDropdown, HasNotes):
     """GLPI groups (Administration > Groups)."""
 
     # Search option ids of the Group itemtype (GLPI 10 rawSearchOptions)
