@@ -86,10 +86,13 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
 
         Returns:
             Search rows of the tickets.
+
+        Raises:
+            ValueError: When ``actor_type`` is not an ``ActorType``.
         """
-        # Delegate to the actor search of the ITIL base; unknown roles keep the assigned-group search
+        # Delegate to the actor search of the ITIL base; unknown roles are refused
         if actor_type not in tuple(ActorType):
-            actor_type = ActorType.ASSIGNED
+            raise ValueError(f"{actor_type!r} is not a valid ActorType")
         return Ticket.get_by_group(group_id, actor_type, **kwargs)
 
     @classmethod
@@ -105,9 +108,10 @@ class Group(CommonTreeDropdown, HasNotes, HasLogs):
         """
         criteria = [
             {
+                # "equals" compares the item id on link fields, so the anchored text match is used
                 "field": cls.SEARCH_FIELD_NAME,
-                "searchtype": "equals",
-                "value": name,
+                "searchtype": "contains",
+                "value": f"^{name}$",
             }
         ]
         return cls.search(criteria, **kwargs)

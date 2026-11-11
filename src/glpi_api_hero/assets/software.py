@@ -71,6 +71,6 @@ class Software(
             The installation rows of all versions.
         """
         rows: list[dict[str, Any]] = []
-        for version in cls.get_versions(software_id):
+        for version in cls.get_versions(software_id, range="0-9999"):
             rows.extend(cls._for("SoftwareVersion").get_sub_items(int(version["id"]), "Item_SoftwareVersion", **params))
         return rows

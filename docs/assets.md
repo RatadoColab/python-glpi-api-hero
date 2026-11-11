@@ -19,6 +19,9 @@ Computer.get_devices(12)                           # every kind this itemtype ca
 hasattr(Cable, "get_network_ports")                # False: cables have no network ports in GLPI
 ```
 
+Known limitation: on GLPI 10.0.26 the child tables read by `Computer.get_virtual_machines` and
+`ConsumableItem.get_consumables` answer `ServerError` (`ERROR_UNKNOWN`) through the item endpoints.
+
 Specific methods: `Computer.get_virtual_machines`, `Computer.get_connections`, `Printer.get_cartridges`,
 `CartridgeItem.get_cartridges`, `CartridgeItem.get_compatible_printer_models`, `ConsumableItem.get_consumables`,
 `Rack.get_items`, `Rack.get_pdus`, `Enclosure.get_items`, `Software.get_versions`, `Software.get_licenses`,

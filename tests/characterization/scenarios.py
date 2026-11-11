@@ -405,6 +405,11 @@ _D34 = "D34: Computer.get_disks queries the real sub-itemtype Item_Disk (Compute
 _D35 = "D35: Location searches use the rawSearchOptions ids (name 14, completename 1) and User location 3"
 _D36 = "D36: the dashboard SLA field is time_to_resolve (18); 155 is time_to_own"
 _D39 = "D39: Group.delete_user reads the whole membership (range 0-9999); Group.get_by_name uses the name (14)"
+_D58 = ("D58: search values are sent as typed (the apostrophe is not doubled, confirmed on the GLPI 10 lab) and "
+        "every request asks for unsanitized content (X-GLPI-Sanitized-Content: false)")
+_D59 = ("D59: User.get_by_username/get_by_email and Group.get_by_name use the anchored text match (contains with "
+        "^value$) because equals compares the item id on link fields (confirmed on the GLPI 10 lab)")
+_D60 = "D60: an unknown ActorType raises ValueError instead of silently searching another role"
 _D37 = "D37: Location.update_from_list warns through logging instead of print()"
 
 _D40 = ("D40: Ticket sub-items are bound with the column GLPI expects (tickets_id, tickets_id_1...), "
@@ -426,8 +431,12 @@ _D46 = ("D46: HasTickets.get_tickets reads the Item_Ticket rows of the item (GLP
         "items_id); option 13 of Ticket is not searchable and 131 is the item type (known bug fixed, P-004)")
 
 V2: dict[str, dict[str, Any]] = {
+    "commondbtm-search-quote": {"requests_change": _D58},
+    "user-getbyusername": {"requests_change": _D59},
+    "user-getbyemail": {"requests_change": _D59},
+    "user-getalltickets-unknown-type": {"requests_change": _D60},
     "computer-gettickets": {"known_bug": None, "requests_change": _D46, "fixed": _D46},
-    "group-getbyname": {"requests_change": _D39, "fixed": _D39},
+    "group-getbyname": {"requests_change": f"{_D39}; {_D59}", "fixed": _D39},
     "group-deleteuser-not-member": {"requests_change": _D39},
     "group-deleteuser-empty-group": {"requests_change": _D39},
     "computer-getdisks": {"requests_change": _D34, "fixed": _D34},
@@ -476,7 +485,7 @@ V2: dict[str, dict[str, Any]] = {
                                        "requests_change": _D20, "fixed": _D20},
     "commondbtm-field-id": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
     "commondbtm-field-uid": {"known_bug": None, "requests_change": _D20, "fixed": _D20},
-    "user-getbyusername-429": {"known_bug": None, "fixed": "mapped to RateLimitError"},
+    "user-getbyusername-429": {"known_bug": None, "requests_change": _D59, "fixed": "mapped to RateLimitError"},
     "group-deleteuser": {"known_bug": None, "requests_change": f"{_D21}; {_D39}", "fixed": _D21},
     "ticket-searchfollowups": {"known_bug": None, "requests_change": _D53, "fixed": _D42},
     "ticket-approvalsolution": {"args": [10], "known_bug": None, "requests_change": _D41, "fixed": _D41},

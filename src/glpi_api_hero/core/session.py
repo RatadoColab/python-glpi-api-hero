@@ -122,7 +122,8 @@ class Glpi:
             # The error of the block wins over a failure to log out
             cls._close_quietly()
             raise
-        cls.disconnect()
+        # A logout failure after a successful block must not discard its result
+        cls._close_quietly()
 
     @classmethod
     def _close_quietly(cls) -> None:
