@@ -1,0 +1,541 @@
+{
+ "capabilities": {
+  "infocom": {
+   "source": "$CFG_GLPI['infocom_types']",
+   "methods": [
+    "get_infocom"
+   ]
+  },
+  "networkport": {
+   "source": "$CFG_GLPI['networkport_types']",
+   "methods": [
+    "get_network_ports"
+   ]
+  },
+  "contract": {
+   "source": "$CFG_GLPI['contract_types']",
+   "methods": [
+    "get_contracts"
+   ]
+  },
+  "document": {
+   "source": "$CFG_GLPI['document_types']",
+   "methods": [
+    "get_documents"
+   ]
+  },
+  "certificate": {
+   "source": "$CFG_GLPI['certificate_types']",
+   "methods": [
+    "get_certificates"
+   ]
+  },
+  "domain": {
+   "source": "$CFG_GLPI['domain_types']",
+   "methods": [
+    "get_domains"
+   ]
+  },
+  "appliance": {
+   "source": "$CFG_GLPI['appliance_types']",
+   "methods": [
+    "get_appliances"
+   ]
+  },
+  "cluster": {
+   "source": "$CFG_GLPI['cluster_types']",
+   "methods": [
+    "get_clusters"
+   ]
+  },
+  "software": {
+   "source": "$CFG_GLPI['software_types']",
+   "methods": [
+    "get_software_versions",
+    "get_software_licenses"
+   ]
+  },
+  "operatingsystem": {
+   "source": "$CFG_GLPI['operatingsystem_types']",
+   "methods": [
+    "get_operating_systems"
+   ]
+  },
+  "disk": {
+   "source": "$CFG_GLPI['disk_types']",
+   "methods": [
+    "get_disks"
+   ]
+  },
+  "itemdevices": {
+   "source": "$CFG_GLPI['itemdevices_types']",
+   "methods": [
+    "get_devices"
+   ]
+  },
+  "simcard": {
+   "source": "$CFG_GLPI['itemdevicesimcard_types']",
+   "methods": [
+    "get_sim_cards"
+   ]
+  },
+  "rackable": {
+   "source": "$CFG_GLPI['rackable_types']",
+   "methods": [
+    "get_racks"
+   ]
+  },
+  "remote_management": {
+   "source": "$CFG_GLPI['remote_management_types']",
+   "methods": [
+    "get_remote_managements"
+   ]
+  },
+  "reservation": {
+   "source": "$CFG_GLPI['reservation_types']",
+   "methods": [
+    "get_reservation_items"
+   ]
+  },
+  "ticket": {
+   "source": "$CFG_GLPI['ticket_types']",
+   "methods": [
+    "get_tickets"
+   ]
+  },
+  "notes": {
+   "source": "$usenotepad = true in src/<Itemtype>.php",
+   "methods": [
+    "get_notes"
+   ]
+  }
+ },
+ "matrix": {
+  "Computer": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "cluster",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "remote_management",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "Monitor": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "rackable",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "Software": [
+   "infocom",
+   "contract",
+   "document",
+   "domain",
+   "appliance",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "NetworkEquipment": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "cluster",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "Peripheral": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "itemdevices",
+   "simcard",
+   "rackable",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "Printer": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "CartridgeItem": [
+   "infocom",
+   "document",
+   "notes"
+  ],
+  "ConsumableItem": [
+   "infocom",
+   "document",
+   "notes"
+  ],
+  "Phone": [
+   "infocom",
+   "networkport",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "software",
+   "operatingsystem",
+   "disk",
+   "itemdevices",
+   "simcard",
+   "remote_management",
+   "reservation",
+   "ticket",
+   "notes"
+  ],
+  "Rack": [
+   "infocom",
+   "contract",
+   "document",
+   "ticket"
+  ],
+  "Enclosure": [
+   "infocom",
+   "networkport",
+   "contract",
+   "itemdevices",
+   "rackable",
+   "ticket"
+  ],
+  "PDU": [
+   "infocom",
+   "networkport",
+   "contract",
+   "rackable",
+   "ticket"
+  ],
+  "PassiveDCEquipment": [
+   "infocom",
+   "contract",
+   "rackable",
+   "ticket"
+  ],
+  "Unmanaged": [
+   "networkport",
+   "domain"
+  ],
+  "Cable": [
+   "infocom",
+   "ticket"
+  ],
+  "SoftwareLicense": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "ticket",
+   "notes"
+  ],
+  "Budget": [
+   "document",
+   "notes"
+  ],
+  "Supplier": [
+   "document",
+   "notes"
+  ],
+  "Contact": [
+   "document",
+   "notes"
+  ],
+  "Contract": [
+   "document",
+   "notes"
+  ],
+  "Document": [
+   "document",
+   "notes"
+  ],
+  "Line": [
+   "infocom",
+   "contract",
+   "document",
+   "ticket",
+   "notes"
+  ],
+  "Certificate": [
+   "infocom",
+   "contract",
+   "document",
+   "domain",
+   "ticket",
+   "notes"
+  ],
+  "Datacenter": [],
+  "Cluster": [
+   "networkport",
+   "contract",
+   "document",
+   "appliance",
+   "ticket"
+  ],
+  "Domain": [
+   "infocom",
+   "contract",
+   "certificate",
+   "ticket",
+   "notes",
+   "document"
+  ],
+  "Appliance": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "ticket",
+   "notes"
+  ],
+  "DatabaseInstance": [
+   "infocom",
+   "contract",
+   "document",
+   "certificate",
+   "domain",
+   "appliance",
+   "ticket",
+   "notes"
+  ],
+  "Project": [
+   "contract",
+   "document",
+   "notes"
+  ],
+  "Reminder": [
+   "document"
+  ],
+  "KnowbaseItem": [
+   "document"
+  ],
+  "User": [
+   "document",
+   "certificate"
+  ],
+  "Entity": [
+   "document",
+   "notes"
+  ],
+  "Group": [
+   "notes"
+  ]
+ },
+ "device_types": {
+  "Item_DeviceMotherboard": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceFirmware": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DeviceProcessor": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceMemory": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Printer",
+   "Phone"
+  ],
+  "Item_DeviceHardDrive": [
+   "Computer",
+   "Peripheral",
+   "NetworkEquipment",
+   "Printer",
+   "Phone"
+  ],
+  "Item_DeviceNetworkCard": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Phone",
+   "Printer"
+  ],
+  "Item_DeviceDrive": [
+   "Computer",
+   "Peripheral"
+  ],
+  "Item_DeviceBattery": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "Printer"
+  ],
+  "Item_DeviceGraphicCard": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceSoundCard": [
+   "Computer"
+  ],
+  "Item_DeviceControl": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DevicePci": [
+   "*"
+  ],
+  "Item_DevicePowerSupply": [
+   "Computer",
+   "NetworkEquipment",
+   "Peripheral",
+   "Enclosure",
+   "Phone"
+  ],
+  "Item_DeviceGeneric": [
+   "*"
+  ],
+  "Item_DeviceSimcard": [
+   "Computer",
+   "Peripheral",
+   "Phone",
+   "NetworkEquipment",
+   "Printer"
+  ],
+  "Item_DeviceSensor": [
+   "Computer",
+   "Peripheral",
+   "Phone"
+  ],
+  "Item_DeviceCamera": [
+   "Computer",
+   "Phone"
+  ],
+  "Item_DeviceCase": [
+   "Computer"
+  ]
+ },
+ "excluded": {
+  "Appliance": {
+   "capabilities": [
+    "appliance"
+   ],
+   "reason": "Appliance_Item has appliances_id: GLPI filters the sub-item by the parent as owner, so it would list the items of the appliance, not the appliances it belongs to"
+  },
+  "Document": {
+   "capabilities": [
+    "document"
+   ],
+   "reason": "Document_Item has documents_id: same ambiguity (Document.get_items lists the items of the document)"
+  },
+  "Supplier": {
+   "capabilities": [
+    "contract"
+   ],
+   "reason": "Supplier.get_contracts is its own method (Contract_Supplier); Supplier is not in contract_types"
+  },
+  "User": {
+   "capabilities": [
+    "ticket"
+   ],
+   "reason": "User.get_tickets is its own search by actor (ITIL base); User is not in ticket_types"
+  },
+  "Group": {
+   "capabilities": [
+    "ticket"
+   ],
+   "reason": "Group.get_tickets is its own search by actor (ITIL base); Group is not in ticket_types"
+  }
+ },
+ "management": [
+  "SoftwareLicense",
+  "Budget",
+  "Supplier",
+  "Contact",
+  "Contract",
+  "Document",
+  "Line",
+  "Certificate",
+  "Datacenter",
+  "Cluster",
+  "Domain",
+  "Appliance",
+  "DatabaseInstance"
+ ],
+ "other_models": {
+  "Project": [
+   "contract",
+   "document",
+   "notes"
+  ],
+  "Reminder": [
+   "document"
+  ],
+  "KnowbaseItem": [
+   "document"
+  ],
+  "User": [
+   "document",
+   "certificate"
+  ],
+  "Entity": [
+   "document",
+   "notes"
+  ],
+  "Group": [
+   "notes"
+  ]
+ }
+}

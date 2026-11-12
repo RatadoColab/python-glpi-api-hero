@@ -3,9 +3,9 @@ requires = ["setuptools>=65"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "GlpiApiHero"
-version = "0.1.0"
-description = "Python client to easly communication with GLPI REST API."
+name = "glpi-api-hero"
+version = "1.0.0"
+description = "Typed Python client for the GLPI REST API: generic CRUD, search and models of the GLPI itemtypes."
 authors = [
     { name = "André Proto" },
     { name = "Leonardo Fernandes da Silva" }
@@ -14,13 +14,25 @@ keywords = ["GLPI", "ITSM", "helpdesk", "API", "REST", "client"]
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 
 dependencies = [
-    "glpi_api>=0.7.0"
+    "requests>=2.32.4"
 ]
 
 [project.optional-dependencies]
-dashboard = ["plotly>=5.0.0", "kaleido>=1.0.0"]
+dev = ["pytest>=8.0", "responses>=0.25", "ruff>=0.6", "build>=1.2", "pip-audit>=2.7"]
 
 [project.urls]
 Homepage = "https://github.com/RatadoColab/python-glpi-api-hero"
@@ -32,5 +44,26 @@ Changelog = "https://github.com/RatadoColab/python-glpi-api-hero/blob/main/CHANG
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+glpi_api_hero = ["py.typed"]
+
 # [project.scripts]
 # python-glpi-api-hero = "python-glpi-api-hero.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# Dashboard example keeps its original error handling
+"examples/ticket_dashboard/ticket_dashboard.py" = ["B904", "B905"]
+# Former session API kept for the characterization tests only (phase 04.1, D32)
+"tests/characterization/legacy_session.py" = ["N802"]
+# Examples extend sys.path before importing the library from a checkout
+"examples/**" = ["E402"]

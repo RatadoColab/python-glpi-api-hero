@@ -1,0 +1,534 @@
+import os
+from datetime import date, datetime
+
+from glpi_api_hero import CommonDBTM, Glpi
+
+
+class TicketDashboard(CommonDBTM):
+    """Visual dashboard of GLPI tickets by period and ITIL category.
+
+    Generates an interactive HTML file (or a static PNG/SVG) with:
+    - 6 KPI cards: total, closed, solved, open, SLA due today, SLA overdue
+    - Stacked horizontal bar chart by category
+    - Donut chart with the percentage distribution by category
+    - Detailed table by category
+
+    Example:
+
+        from glpi_api_hero import Glpi
+        from examples.ticket_dashboard.ticket_dashboard import TicketDashboard
+
+        Glpi.connect(url, apptoken, user_token=token)
+
+        path = TicketDashboard.generate(
+            date_from="2024-04-24",
+            date_to="2024-05-14",
+            categories={"Infrastructure": 3, "Systems": 5, "Support": 7},
+            output_path="dashboard_dti.html",
+            titulo="DTI",
+        )
+        print(f"Dashboard written to: {path}")
+
+    SLA note:
+        The SLA fields use ``FIELD_PRAZO = 18`` (time_to_resolve).
+        Override this class attribute if your GLPI uses a different field id.
+    """
+
+    _glpi_name = "Ticket"
+
+    # GLPI ticket status codes.
+    STATUS_NOVO      = 1
+    STATUS_ATRIB     = 2
+    STATUS_PLANEJ    = 3
+    STATUS_PEND      = 4
+    STATUS_RESOLVIDO = 5
+    STATUS_FECHADO   = 6
+
+    # Default GLPI field ids for Ticket.
+    FIELD_STATUS    = 12
+    FIELD_CATEGORIA = 7    # itilcategories_id
+    FIELD_ABERTURA  = 15
+    FIELD_PRAZO     = 18   # time_to_resolve, used for the SLA calculation.
+
+    _CARD_COLORS = ["#1a6b3c", "#1c2e4a", "#4a3080", "#1a7dc4", "#c48a00", "#c94040"]
+
+    _BAR_COLORS = {
+        "fechados":     "#1c2e4a",
+        "solucionados": "#4a3080",
+        "abertos":      "#1a7dc4",
+        "sla_hoje":     "#f0b429",
+        "sla_vencido":  "#e05c5c",
+    }
+
+    _PIE_PALETTE = [
+        "#4a9fd4", "#e07c3a", "#1a3a5c",
+        "#5b4ea0", "#e05c5c", "#8c8c8c", "#f0b429",
+    ]
+
+    # ------------------------------------------------------------------
+    # GLPI query helpers
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _count(cls, criteria: list) -> int:
+        # The legacy body carries totalcount, which the normalized search drops
+        body = Glpi.connector().search_body(cls._itemtype(), criteria, range="0-0")
+        return int(body.get("totalcount", 0))
+
+    @classmethod
+    def _base(cls, date_from: str, date_to: str, cat_id: int = None) -> list:
+        """Search criteria."""
+        crit = [
+            {"field": cls.FIELD_ABERTURA, "searchtype": "morethan", "value": date_from},
+            {"field": cls.FIELD_ABERTURA, "searchtype": "lessthan",  "value": date_to,  "link": "AND"},
+        ]
+        if cat_id is not None:
+            crit.append(
+                {"field": cls.FIELD_CATEGORIA, "searchtype": "equals", "value": cat_id, "link": "AND"}
+            )
+        return crit
+
+    @classmethod
+    def _base_sla(cls, cat_id: int = None) -> list:
+        """Base criteria for the SLA: no filter on the opening date.
+
+        SLA overdue/today considers every ticket, regardless of when
+        were created.
+        """
+        if cat_id is not None:
+            return [{"field": cls.FIELD_CATEGORIA, "searchtype": "equals", "value": cat_id}]
+        return []
+
+    @classmethod
+    def _crit_status(cls, status: int) -> list:
+        return [{"field": cls.FIELD_STATUS, "searchtype": "equals", "value": status, "link": "AND"}]
+
+    @classmethod
+    def _crit_sla_vencido(cls) -> list:
+        # SLA overdue = deadline passed, regardless of status (open, closed or solved).
+        today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return [
+            {"field": cls.FIELD_PRAZO, "searchtype": "lessthan", "value": today, "link": "AND"},
+        ]
+
+    @classmethod
+    def _crit_sla_hoje(cls) -> list:
+        hoje   = date.today()
+        inicio = f"{hoje} 00:00:00"
+        fim    = f"{hoje} 23:59:59"
+        return [
+            {"field": cls.FIELD_STATUS, "searchtype": "notequals", "value": cls.STATUS_RESOLVIDO, "link": "AND"},
+            {"field": cls.FIELD_STATUS, "searchtype": "notequals", "value": cls.STATUS_FECHADO,   "link": "AND"},
+            {"field": cls.FIELD_PRAZO,  "searchtype": "morethan",  "value": inicio,              "link": "AND"},
+            {"field": cls.FIELD_PRAZO,  "searchtype": "lessthan",  "value": fim,                 "link": "AND"},
+        ]
+
+    @classmethod
+    def diagnose(cls, date_from: str, date_to: str, cat_id: int = None) -> None:
+        """Print the URLs and totals of each query for debugging.
+
+        Useful to check that the field ids and criteria are correct.
+
+        Example::
+
+            TicketDashboard.diagnose("2024-04-24", "2024-05-14")
+            TicketDashboard.diagnose("2024-04-24", "2024-05-14", cat_id=3)
+        """
+        connector = Glpi.connector()
+        b    = cls._base(date_from, date_to, cat_id)
+        bsla = cls._base_sla(cat_id)
+
+        queries = [
+            ("total",        b),
+            ("fechados",     b    + cls._crit_status(cls.STATUS_FECHADO)),
+            ("solucionados", b    + cls._crit_status(cls.STATUS_RESOLVIDO)),
+            ("sla_vencido",  bsla + cls._crit_sla_vencido()),
+            ("sla_hoje",     bsla + cls._crit_sla_hoje()),
+        ]
+
+        print(f"\n{'='*60}")
+        print(f"  DIAGNOSE TicketDashboard  |  {date_from} a {date_to}")
+        if cat_id:
+            print(f"  categoria_id = {cat_id}")
+        print(f"{'='*60}")
+
+        for nome, criteria in queries:
+            body  = connector.search_body(cls._itemtype(), criteria, range="0-0")
+            total = body.get("totalcount", "N/A")
+            print(f"  {nome:<14} | totalcount={total}")
+
+        print(f"{'='*60}\n")
+
+    @classmethod
+    def _metrics(cls, date_from: str, date_to: str, cat_id: int = None) -> dict:
+        b    = cls._base(date_from, date_to, cat_id)
+        bsla = cls._base_sla(cat_id)
+        total        = cls._count(b)
+        fechados     = cls._count(b + cls._crit_status(cls.STATUS_FECHADO))
+        solucionados = cls._count(b + cls._crit_status(cls.STATUS_RESOLVIDO))
+        abertos      = max(total - fechados - solucionados, 0)
+        sla_vencido  = cls._count(bsla + cls._crit_sla_vencido())
+        sla_hoje     = cls._count(bsla + cls._crit_sla_hoje())
+        return dict(
+            total=total,
+            fechados=fechados,
+            solucionados=solucionados,
+            abertos=abertos,
+            sla_vencido=sla_vencido,
+            sla_hoje=sla_hoje,
+        )
+
+    # ------------------------------------------------------------------
+    # Data collection.
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def collect_data(
+        cls,
+        date_from: str,
+        date_to: str,
+        categories: dict | None = None,
+    ) -> dict:
+        """Collect ticket metrics from GLPI for the given period.
+
+        Args:
+            date_from:  Start date as YYYY-MM-DD (inclusive).
+            date_to:    End date as YYYY-MM-DD (exclusive: tickets of the last day are not counted).
+            categories: Mapping {display_name: glpi_itilcategory_id}.
+                        E.g. {"Infrastructure": 3, "Systems": 5}.
+                        If None, only the global totals are returned.
+
+        Returns:
+            dict with keys: total, fechados, solucionados, abertos,
+            sla_hoje, sla_vencido and categorias (nested dict by category
+            with the same metrics).
+        """
+        result = cls._metrics(date_from, date_to)
+        categorias = {}
+        if categories:
+            for nome, cat_id in categories.items():
+                categorias[nome] = cls._metrics(date_from, date_to, cat_id)
+        result["categorias"] = categorias
+        return result
+
+    # ------------------------------------------------------------------
+    # Dashboard generation.
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def generate(
+        cls,
+        date_from: str,
+        date_to: str,
+        categories: dict | None = None,
+        output_path: str = "dashboard_glpi.html",
+        titulo: str = "DTI",
+        data: dict | None = None,
+    ) -> str:
+        """Generate the ticket dashboard as HTML or image.
+
+        Args:
+            date_from:   Start date YYYY-MM-DD.
+            date_to:     End date YYYY-MM-DD.
+            categories:  Mapping {category_name: glpi_itilcategory_id}.
+            output_path: Output path: ``.html`` (interactive) or
+                         ``.png``/``.svg``/``.pdf`` (static, needs the kaleido library).
+            titulo:      Central title shown in the dashboard header.
+            data:        Pre-collected data (output of :meth:`collect_data`).
+                         If None, ``collect_data()`` is called automatically.
+
+        Returns:
+            Absolute path of the generated file.
+
+        Raises:
+            ImportError: If plotly is not installed.
+            ImportError: If kaleido is not installed when exporting an image.
+        """
+        try:
+            import plotly.graph_objects as go
+            import plotly.io as pio
+        except ImportError:
+            raise ImportError(
+                "The plotly library must be installed."
+            )
+
+        if data is None:
+            data = cls.collect_data(date_from, date_to, categories)
+
+        categorias = data.get("categorias", {})
+        nomes      = sorted(categorias.keys())
+
+        # ----------------------------------------------------------------
+        # Traces
+        # ----------------------------------------------------------------
+
+        traces = []
+
+        # Stacked horizontal bar chart (esquerda)
+        bar_defs = [
+            ("fechados",     "Closed",      cls._BAR_COLORS["fechados"]),
+            ("solucionados", "Solved",  cls._BAR_COLORS["solucionados"]),
+            ("abertos",      "Open",       cls._BAR_COLORS["abertos"]),
+            ("sla_hoje",     "Due Today", cls._BAR_COLORS["sla_hoje"]),
+            ("sla_vencido",  "SLA Overdue",   cls._BAR_COLORS["sla_vencido"]),
+        ]
+
+        for key, label, color in bar_defs:
+            vals = [categorias[c][key] for c in nomes]
+            traces.append(
+                go.Bar(
+                    name=label,
+                    y=nomes,
+                    x=vals,
+                    orientation="h",
+                    marker_color=color,
+                    text=[str(v) if v else "" for v in vals],
+                    textposition="inside",
+                    insidetextanchor="middle",
+                    xaxis="x1",
+                    yaxis="y1",
+                )
+            )
+
+        # Donut chart (direita, superior)
+        traces.append(
+            go.Pie(
+                labels=nomes,
+                values=[categorias[c]["total"] for c in nomes],
+                hole=0.45,
+                domain={"x": [0.54, 0.98], "y": [0.42, 0.78]},
+                marker_colors=cls._PIE_PALETTE[:len(nomes)],
+                textinfo="percent",
+                textposition="outside",
+                showlegend=False,
+                hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
+            )
+        )
+
+        # Tabela detalhada (direita, inferior)
+        n_rows   = len(nomes) + 1  # +1 for the totals row
+        alt_fill = ["#f5f5f5" if i % 2 == 0 else "#ffffff" for i in range(n_rows - 1)]
+        alt_fill += ["#dce8f5"]  # highlight of the totals row
+
+        col_totals = {
+            k: sum(categorias[c][k] for c in nomes)
+            for k in ("abertos", "sla_vencido", "sla_hoje", "solucionados", "fechados", "total")
+        }
+
+        traces.append(
+            go.Table(
+                domain={"x": [0.54, 0.98], "y": [0.0, 0.38]},
+                header=dict(
+                    values=[
+                        "<b>Category</b>", "<b>Open</b>", "<b>SLA Overdue</b>",
+                        "<b>Due Today</b>", "<b>Solved</b>", "<b>Closed</b>",
+                        "<b>Total</b>",
+                    ],
+                    fill_color="#e8e8e8",
+                    align="left",
+                    font=dict(size=12, color="#333"),
+                    line_color="#ccc",
+                    height=28,
+                ),
+                cells=dict(
+                    values=[
+                        nomes + ["<b>Total</b>"],
+                        [categorias[c]["abertos"]      for c in nomes] + [col_totals["abertos"]],
+                        [categorias[c]["sla_vencido"]  for c in nomes] + [col_totals["sla_vencido"]],
+                        [categorias[c]["sla_hoje"]     for c in nomes] + [col_totals["sla_hoje"]],
+                        [categorias[c]["solucionados"] for c in nomes] + [col_totals["solucionados"]],
+                        [categorias[c]["fechados"]     for c in nomes] + [col_totals["fechados"]],
+                        [categorias[c]["total"]        for c in nomes] + [col_totals["total"]],
+                    ],
+                    align="left",
+                    font=dict(size=11),
+                    fill_color=alt_fill,
+                    line_color="#eee",
+                    height=24,
+                ),
+            )
+        )
+
+        # ----------------------------------------------------------------
+        # Shapes e anotacoes (KPI cards + header)
+        # ----------------------------------------------------------------
+
+        shapes, annotations = [], []
+
+        # Header background
+        shapes.append(dict(
+            type="rect",
+            xref="paper", yref="paper",
+            x0=0, y0=0.94, x1=1, y1=1.01,
+            fillcolor="#1c2e4a",
+            line=dict(width=0),
+            layer="below",
+        ))
+
+        # KPI cards
+        kpi_labels = ["Tickets",   "Closed",    "Solved",
+                      "Open",      "SLA Due Today", "SLA Overdue"]
+        kpi_keys   = ["total",        "fechados",    "solucionados",
+                      "abertos",      "sla_hoje",       "sla_vencido"]
+        kpi_vals   = [data[k] for k in kpi_keys]
+
+        gap   = 0.005
+        width = (1.0 - gap * 7) / 6
+        y0_c, y1_c = 0.805, 0.935
+
+        for i, (label, val, color) in enumerate(zip(kpi_labels, kpi_vals, cls._CARD_COLORS)):
+            x0 = gap + i * (width + gap)
+            x1 = x0 + width
+            xm = (x0 + x1) / 2
+            ym = (y0_c + y1_c) / 2
+
+            shapes.append(dict(
+                type="rect",
+                xref="paper", yref="paper",
+                x0=x0, y0=y0_c, x1=x1, y1=y1_c,
+                fillcolor=color,
+                line=dict(color="white", width=2),
+                layer="below",
+            ))
+            annotations += [
+                dict(
+                    text=f"<b>{val}</b>",
+                    xref="paper", yref="paper",
+                    x=xm, y=ym + 0.022,
+                    showarrow=False,
+                    font=dict(size=24, color="white"),
+                    align="center",
+                    xanchor="center", yanchor="middle",
+                ),
+                dict(
+                    text=label,
+                    xref="paper", yref="paper",
+                    x=xm, y=ym - 0.025,
+                    showarrow=False,
+                    font=dict(size=10, color="rgba(255,255,255,0.9)"),
+                    align="center",
+                    xanchor="center", yanchor="middle",
+                ),
+            ]
+
+        # Vertical center of the header box: (0.94 + 1.01) / 2
+        _header_cy = (0.94 + 1.01) / 2
+
+        # Title centered inside the blue box
+        annotations.append(dict(
+            text=f"<b>{titulo}</b>",
+            xref="paper", yref="paper",
+            x=0.5, y=_header_cy,
+            showarrow=False,
+            font=dict(size=28, color="#f0c030"),
+            xanchor="center",
+            yanchor="middle",
+        ))
+
+        # Periodo no canto superior direito
+        annotations.append(dict(
+            text=f"<b>{date_from}</b>  a  <b>{date_to}</b>",
+            xref="paper", yref="paper",
+            x=0.99, y=_header_cy,
+            showarrow=False,
+            font=dict(size=12, color="#cccccc"),
+            align="right",
+            xanchor="right",
+            yanchor="middle",
+        ))
+
+        # ----------------------------------------------------------------
+        # Legendas manuais (shapes + annotations na margem inferior)
+        # ----------------------------------------------------------------
+
+        leg_y   = -0.055   # vertical center of the legends (below y=0)
+        sq_h    = 0.030    # height of the color square in paper coords
+        sq_w    = 0.018    # width of the square
+        gap_txt = 0.006    # space between square and text
+
+        # Status legend (bar chart): left side [0.0, 0.50]
+        bar_legend_items = [
+            ("Closed",      cls._BAR_COLORS["fechados"]),
+            ("Solved",  cls._BAR_COLORS["solucionados"]),
+            ("Open",       cls._BAR_COLORS["abertos"]),
+            ("Due Today", cls._BAR_COLORS["sla_hoje"]),
+            ("SLA Overdue",   cls._BAR_COLORS["sla_vencido"]),
+        ]
+        n_bar      = len(bar_legend_items)
+        item_w_bar = 0.50 / n_bar
+        for i, (label, color) in enumerate(bar_legend_items):
+            sx0 = i * item_w_bar + 0.005
+            sx1 = sx0 + sq_w
+            shapes.append(dict(
+                type="rect", xref="paper", yref="paper",
+                x0=sx0, y0=leg_y - sq_h / 2,
+                x1=sx1, y1=leg_y + sq_h / 2,
+                fillcolor=color, line=dict(width=0),
+            ))
+            annotations.append(dict(
+                text=label, xref="paper", yref="paper",
+                x=sx1 + gap_txt, y=leg_y,
+                showarrow=False,
+                font=dict(size=10, color="#333"),
+                xanchor="left", yanchor="middle",
+            ))
+
+        # Category legend (donut), right side [0.54, 0.98]
+        n_cat      = len(nomes)
+        item_w_cat = (0.98 - 0.54) / max(n_cat, 1)
+        for i, nome in enumerate(nomes):
+            color = cls._PIE_PALETTE[i % len(cls._PIE_PALETTE)]
+            sx0   = 0.54 + i * item_w_cat + 0.005
+            sx1   = sx0 + sq_w
+            shapes.append(dict(
+                type="rect", xref="paper", yref="paper",
+                x0=sx0, y0=leg_y - sq_h / 2,
+                x1=sx1, y1=leg_y + sq_h / 2,
+                fillcolor=color, line=dict(width=0),
+            ))
+            annotations.append(dict(
+                text=nome, xref="paper", yref="paper",
+                x=sx1 + gap_txt, y=leg_y,
+                showarrow=False,
+                font=dict(size=10, color="#333"),
+                xanchor="left", yanchor="middle",
+            ))
+
+        # ----------------------------------------------------------------
+        # Layout
+        # ----------------------------------------------------------------
+
+        fig = go.Figure(data=traces)
+        fig.update_layout(
+            barmode="stack",
+            xaxis=dict(domain=[0.0, 0.50], anchor="y1", showgrid=True, gridcolor="#eee"),
+            yaxis=dict(domain=[0.0, 0.78], anchor="y1", showgrid=False, autorange="reversed"),
+            template="plotly_white",
+            width=1400,
+            height=900,
+            paper_bgcolor="#f8f9fa",
+            plot_bgcolor="#ffffff",
+            showlegend=False,
+            shapes=shapes,
+            annotations=annotations,
+            margin=dict(l=20, r=20, t=30, b=70),
+        )
+
+        abs_path = os.path.abspath(output_path)
+        ext      = os.path.splitext(output_path)[1].lower()
+
+        if ext == ".html":
+            pio.write_html(fig, file=abs_path, auto_open=False)
+        else:
+            try:
+                import asyncio
+
+                import kaleido
+                asyncio.run(kaleido.write_fig(fig, abs_path))
+            except ImportError:
+                raise ImportError(
+                    f"kaleido is required to export {ext}. "
+                    "Instale com: pip install kaleido"
+                )
+
+        return abs_path

@@ -1,64 +1,77 @@
 # python-glpi-api-hero
 
-Biblioteca Python para integração com a API do GLPI.
+A Python library for working with GLPI (IT service management) from your own scripts and applications.
 
-## Instalação
+## What you can do
+
+- Connect to a GLPI 10 server and work with its data in plain Python.
+- Create, read, update, delete and search the items GLPI manages: tickets, changes, problems, computers and other
+  assets, contracts, suppliers, documents, projects, users, groups, locations and more.
+- Work with the details that belong to an item (follow-ups, tasks, linked assets, contracts, notes) straight from the
+  item itself.
+- Upload and download documents safely.
+- Reach any item type that has no dedicated class through a generic helper.
+- Get clear, library-specific errors instead of raw HTTP failures.
+
+The connection layer is separate from the models, so support for newer GLPI API versions can be added without
+changing the code that uses the library.
+
+## Version 1.0.0
+
+This release is a complete rebuild for GLPI 10. The library no longer depends on another GLPI package, covers the
+item types of every GLPI menu, and uses new method names. If you used version 0.1, read the
+[migration guide](docs/migration.md) first. The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
+
+## Installation
+
+Python 3.10 or newer is required.
 
 ```bash
-# Modo desenvolvimento
-pip install -e .
+pip install glpi-api-hero
 ```
 
-Para gerar um pacote distribuível:
+To work on the library itself:
 
 ```bash
-pip install build && python -m build
-# Instalar em outra máquina:
-pip install dist/arquivo.whl
+git clone <repository-url>
+cd python-glpi-api-hero
+pip install -e ".[dev]"
 ```
 
-## Documentação
+## First steps
 
-| Documento | Classes | Descrição |
-|-----------|---------|-----------|
-| [docs/common_dbtm.md](docs/common_dbtm.md) | `CommonDBTM` | Classe base — CRUD genérico, busca e sub-itens herdados por todos os modelos |
-| [docs/tickets.md](docs/tickets.md) | `Ticket` | Chamados — CRUD, acompanhamentos, soluções, validações, tarefas, ativos e vínculos |
-| [docs/users-groups.md](docs/users-groups.md) | `User`, `Group` | Usuários e grupos — busca, membros e chamados associados |
-| [docs/computers.md](docs/computers.md) | `Computer` | Computadores — inventário, hardware, software, rede e chamados vinculados |
-| [docs/locations.md](docs/locations.md) | `Location` | Localizações — hierarquia, itens associados e criação/atualização em lote com mapeador configurável |
-| [docs/sub-resources.md](docs/sub-resources.md) | `Actor`, `Item`, `Task`, `LinkedTicket`, `ITILFollowup`, `ITILSolution`, `TicketValidation`, `Cluster`, `NetworkEquipment` | Sub-recursos de chamados e classes stub (que não tem métodos próprios de domínio ainda) |
-| [docs/ticket_dashboard.md](docs/ticket_dashboard.md) | `TicketDashboard` | Dashboard visual de chamados por período e categoria — gera dashboard no formato HTML ou imagem estática com KPIs e gráficos |
-
-## Pré-requisito: sessão ativa
-
-Todos os métodos exigem uma sessão GLPI inicializada antes de serem chamados:
+You need the GLPI API URL, an application token and either a user token or a login and password.
 
 ```python
-from glpi_api_hero import ApiCommunication
+from glpi_api_hero import Glpi
+from glpi_api_hero.assistance import Ticket
 
-ApiCommunication.setConnectionParameters(
-    url='URL_API_GLPI',
-    apptoken='SEU_APP_TOKEN',
-    user='login',
-    passwd='senha',
-)
-ApiCommunication.initSession()
-ApiCommunication.setProfileEntity(profiles_id=4, entities_id=111, is_recursive=True)
-
-# ... Chamadas aos métodos ...
-
-ApiCommunication.killSession()
+with Glpi.session("https://glpi.example.org/apirest.php", "APP_TOKEN", user_token="USER_TOKEN"):
+    ticket_id = Ticket.add({"name": "Printer is down", "content": "Paper jam on floor 2"})
+    Ticket.add_followup(ticket_id, {"content": "A technician is on the way"})
 ```
 
-## Exemplos
+## Documentation
 
-A pasta `examples/` traz exemplos de uso:
+| Document | Content |
+|---|---|
+| [docs/getting-started.md](docs/getting-started.md) | Installation, sessions, profiles and entities |
+| [docs/exceptions.md](docs/exceptions.md) | The errors the library raises and how to handle them |
+| [docs/core.md](docs/core.md) | Generic operations shared by every item type |
+| [docs/assets.md](docs/assets.md) | Computers, monitors, printers, network equipment and other assets |
+| [docs/assistance.md](docs/assistance.md) | Tickets, changes, problems and recurrent items |
+| [docs/management.md](docs/management.md) | Contracts, suppliers, documents, domains, licenses and more |
+| [docs/tools.md](docs/tools.md) | Projects, reminders, knowledge base, reservations |
+| [docs/administration.md](docs/administration.md) | Users, groups, entities and profiles |
+| [docs/dropdowns.md](docs/dropdowns.md) | Locations, categories, statuses and manufacturers |
+| [docs/components.md](docs/components.md) | Components such as SIM cards |
+| [docs/migration.md](docs/migration.md) | What changed from the 0.1 releases |
 
-- `examples/org_units/`: mapeador que converte um JSON de unidades organizacionais em localizações do GLPI.
-- `examples/rabbitmq_sync/`: par producer/consumer com RabbitMQ para sincronizar registros com Locations do GLPI de forma assíncrona, com tratamento de rate limit e fila de falhas.
+## Examples
 
-```bash
-cd examples/rabbitmq_sync
-cp .env.example .env   # preencha as variáveis
-docker-compose up --build
-```
+The `examples/` folder has ready-to-run examples:
+
+- `examples/org_units/`: turns a list of organizational units into GLPI locations.
+- `examples/rabbitmq_sync/`: a producer and a consumer that keep GLPI locations in sync through RabbitMQ, with rate
+  limit handling and a queue for failed messages.
+- `examples/ticket_dashboard/`: a visual dashboard of tickets by period and category.
