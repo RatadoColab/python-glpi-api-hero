@@ -16,7 +16,15 @@ A Python library for working with GLPI (IT service management) from your own scr
 The connection layer is separate from the models, so support for newer GLPI API versions can be added without
 changing the code that uses the library.
 
+## Version 1.0.0
+
+This release is a complete rebuild for GLPI 10. The library no longer depends on another GLPI package, covers the
+item types of every GLPI menu, and uses new method names. If you used version 0.1, read the
+[migration guide](docs/migration.md) first. The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Installation
+
+Python 3.10 or newer is required.
 
 ```bash
 pip install glpi-api-hero
