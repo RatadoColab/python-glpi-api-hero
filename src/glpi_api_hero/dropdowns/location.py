@@ -1,0 +1,280 @@
+import logging
+from collections.abc import Callable
+from typing import Any, ClassVar
+
+from glpi_api_hero.administration.user import User
+from glpi_api_hero.assets.computer import Computer
+from glpi_api_hero.assets.network_equipment import NetworkEquipment
+from glpi_api_hero.assistance.ticket import Ticket
+from glpi_api_hero.core.common_tree_dropdown import CommonTreeDropdown
+from glpi_api_hero.core.generic_item import GenericItem
+from glpi_api_hero.exceptions import GlpiAPIError
+
+logger = logging.getLogger("glpi_api_hero")
+
+
+class Location(CommonTreeDropdown):
+    """Locations (Setup > Dropdowns > Locations)."""
+
+    # Search option ids of the Location itemtype (GLPI 10 rawSearchOptions)
+    # "code" is not a core GLPI field: option 11 is the building number; the field of the
+    # deployment (e.g. a plugin option) must be set by the application
+    SEARCH_FIELD_CODE = 11
+    # Search option of the location where it is not 3 (GLPI 10 rawSearchOptions)
+    _ITEMTYPE_LOCATION_FIELDS: ClassVar[dict[str, int]] = {"Ticket": 83}
+
+    # Lookups
+
+    @classmethod
+    def get_by_code(cls, code: str, **kwargs: Any) -> list[dict[str, Any]]:
+        """Search a location by its external code (``code`` field).
+
+        Args:
+            code: Value of the ``code`` field.
+            **kwargs: Extra search parameters.
+
+        Returns:
+            Search rows indexed by field id.
+        """
+        criteria = [
+            {
+                "field": cls.SEARCH_FIELD_CODE,
+                "searchtype": "equals",
+                "value": code,
+            }
+        ]
+        return cls.search(criteria, **kwargs)
+
+    # Items in the location
+
+    @classmethod
+    def get_computers(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+        """Return the computers placed in the location.
+
+        Args:
+            location_id: Location id.
+            **kwargs: Extra search parameters.
+
+        Returns:
+            Search rows of the computers.
+        """
+        criteria = [
+            {
+                "field": Computer.SEARCH_FIELD_LOCATION,
+                "searchtype": "equals",
+                "value": location_id,
+            }
+        ]
+        return Computer.search(criteria, **kwargs)
+
+    @classmethod
+    def get_network_equipments(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+        """Return the network equipment placed in the location.
+
+        Args:
+            location_id: Location id.
+            **kwargs: Extra search parameters.
+
+        Returns:
+            Search rows of the network equipment.
+        """
+        criteria = [
+            {
+                "field": NetworkEquipment.SEARCH_FIELD_LOCATION,
+                "searchtype": "equals",
+                "value": location_id,
+            }
+        ]
+        return NetworkEquipment.search(criteria, **kwargs)
+
+    @classmethod
+    def get_items_by_type(cls, location_id: int, itemtype: str, **params: Any) -> list[dict[str, Any]]:
+        """Search the items of one itemtype placed in a location.
+
+        Option 3 is the location on assets and most inventory itemtypes; ``Ticket`` uses 83. Other itemtypes may
+        number it differently (option 3 of Project or Entity is not the location).
+
+        Args:
+            location_id: Location id.
+            itemtype: GLPI itemtype (validated before any request).
+            **params: Extra search parameters.
+
+        Returns:
+            Search rows indexed by field id.
+
+        Raises:
+            ValueError: When ``itemtype`` is not a valid itemtype name.
+        """
+        model = GenericItem.of(itemtype)
+        field = cls._ITEMTYPE_LOCATION_FIELDS.get(itemtype, 3)
+        return model.search([{"field": field, "searchtype": "equals", "value": location_id}], **params)
+
+    @classmethod
+    def get_tickets(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+        """Return the tickets of the location.
+
+        Args:
+            location_id: Location id.
+            **kwargs: Extra search parameters.
+
+        Returns:
+            Search rows of the tickets.
+        """
+        criteria = [
+            {
+                "field": Ticket.SEARCH_FIELD_LOCATION,
+                "searchtype": "equals",
+                "value": location_id,
+            }
+        ]
+        return Ticket.search(criteria, **kwargs)
+
+    @classmethod
+    def get_users(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+        """Return the users of the location.
+
+        Args:
+            location_id: Location id.
+            **kwargs: Extra search parameters.
+
+        Returns:
+            Search rows of the users.
+        """
+        criteria = [
+            {
+                "field": User.SEARCH_FIELD_LOCATION,
+                "searchtype": "equals",
+                "value": location_id,
+            }
+        ]
+        return User.search(criteria, **kwargs)
+
+    # Bulk creation
+
+    @classmethod
+    def add_from_list(
+        cls,
+        items: list[Any],
+        locations_id: int = 0,
+        entities_id: int = 0,
+        *,
+        mapper: Callable[[Any], dict[str, Any]] | None = None,
+    ) -> list[int]:
+        """Create multiple locations from a list of records.
+
+        Args:
+            items (list): Records to create. Each one is either a dict already holding
+                GLPI Location fields or, when mapper is given, a record in any source format.
+            locations_id (int): Parent location ID in GLPI. Default: 0 (root).
+            entities_id (int): Entity ID in GLPI. Default: 0 (root entity).
+            mapper (callable, optional): Function receiving one record and returning a dict
+                of GLPI Location fields. Default: records are used as they are.
+
+        Returns:
+            list: Operation result returned by the API.
+        """
+        # Apply the mapper (when provided) and attach parent location and entity
+        mapped_items = [
+            {"locations_id": locations_id, "entities_id": entities_id, **(mapper(item) if mapper else dict(item))}
+            for item in items
+        ]
+        return cls.add_many(mapped_items)
+
+    @classmethod
+    def update_from_list(
+        cls,
+        items: list[Any],
+        locations_id: int = 0,
+        entities_id: int = 0,
+        *,
+        mapper: Callable[[Any], dict[str, Any]] | None = None,
+        key_field: str = "code",
+    ) -> list[Any]:
+        """Update existing locations from a list of records, creating the missing ones.
+
+        An existing location is matched by key_field first and by name as a fallback;
+        when no match is found a new location is created.
+
+        Args:
+            items (list): Records to process (see add_from_list).
+            locations_id (int): Parent location ID for new entries. Default: 0.
+            entities_id (int): Entity ID for new entries. Default: 0.
+            mapper (callable, optional): Function converting one record into a dict of
+                GLPI Location fields. Default: records are used as they are.
+            key_field (str): GLPI field used as unique key to match existing locations.
+                Default: 'code'.
+
+        Returns:
+            list: Operation results (one entry per processed item).
+
+        Raises:
+            GlpiAPIError: When GLPI refuses a creation for a reason other than a duplicate entry.
+        """
+        # Nothing to process: no request is needed
+        if not items:
+            return []
+
+        # get_all returns full objects with a direct id (no field id ambiguity)
+        all_locations = cls.get_all(range="0-9999")
+        if not isinstance(all_locations, list):
+            all_locations = []
+
+        if not all_locations:
+            logger.warning(
+                "get_all returned no Location: check that the GLPI profile can read Locations "
+                "(Setup > Profiles > Assets > Locations: Read)"
+            )
+
+        # Index current locations by key and by name for matching
+        by_key = {str(loc[key_field]): loc for loc in all_locations if loc.get(key_field)}
+        by_name = {loc["name"]: loc for loc in all_locations if loc.get("name")}
+
+        results = []
+        for item in items:
+            mapped = mapper(item) if mapper else dict(item)
+            key = mapped.get(key_field)
+            name = mapped.get("name", "")
+
+            # Match by key first, then by name
+            existing = by_key.get(str(key)) if key else None
+            if not existing:
+                existing = by_name.get(name)
+
+            if existing:
+                results.append(cls.update(existing["id"], mapped))
+            else:
+                try:
+                    new_id = cls.add({"locations_id": locations_id, "entities_id": entities_id, **mapped})
+                    results.append(new_id)
+                    # Index the new location so a repeated record in the same batch updates it
+                    created = {**mapped, "id": new_id}
+                    if key:
+                        by_key[str(key)] = created
+                    if name:
+                        by_name[name] = created
+                except GlpiAPIError as exc:
+                    if "Duplicate entry" in str(exc):
+                        logger.warning(
+                            "Location %r already exists but was not found through the API: "
+                            "fix the read permission to enable updates",
+                            name,
+                        )
+                        results.append({"skipped": True, "name": name})
+                    else:
+                        raise
+        return results
+
+    # History
+
+    @classmethod
+    def get_logs(cls, location_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+        """Return the change history of the location.
+
+        Args:
+            location_id: Location id.
+            **kwargs: Extra API parameters.
+
+        Returns:
+            The history rows.
+        """
+        return cls.get_sub_items(location_id, "Log", **kwargs)
