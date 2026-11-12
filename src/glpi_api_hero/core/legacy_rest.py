@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import html
 import json
 import logging
 import os
@@ -671,7 +672,12 @@ class LegacyRestConnector(Connector):
         """
         query = self._search_params(itemtype, criteria, forcedisplay, metacriteria, params)
         body = self._call_ranged("GET", ["search", itemtype], params=query)
-        return body if isinstance(body, dict) else {}
+        if not isinstance(body, dict):
+            return {}
+        # The search engine ignores the unsanitized-content header, so its rows are decoded here
+        if "data" in body:
+            body = {**body, "data": _decode_entities(body["data"])}
+        return body
 
     def search(self, itemtype: str, criteria: Sequence[dict[str, Any]] | None = None, *,
                forcedisplay: Sequence[int | str] | None = None,
@@ -1073,3 +1079,21 @@ def _safe_filename(name: str | None, default: str) -> str:
     # Control characters (NUL, newlines, escapes, DEL) are removed
     base = "".join(char for char in base if unicodedata.category(char) not in ("Cc", "Cf", "Zl", "Zp")).strip()
     return default if base in ("", ".", "..") else base
+
+
+def _decode_entities(value: Any) -> Any:
+    """Decode the HTML entities GLPI adds to the text of a search row.
+
+    Args:
+        value: A row, a list of rows or any nested value of a search answer.
+
+    Returns:
+        A copy with every string decoded (``&#60;p&#62;`` becomes ``<p>``); other values are kept.
+    """
+    if isinstance(value, str):
+        return html.unescape(value)
+    if isinstance(value, list):
+        return [_decode_entities(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _decode_entities(item) for key, item in value.items()}
+    return value

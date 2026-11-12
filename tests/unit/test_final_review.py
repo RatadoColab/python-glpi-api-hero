@@ -24,6 +24,19 @@ def test_requests_ask_for_unsanitized_content(session: GlpiMock) -> None:
     assert connector._http.headers["X-GLPI-Sanitized-Content"] == "false"
 
 
+def test_search_rows_come_back_decoded(session: GlpiMock) -> None:
+    """The search engine answers with HTML entities; the rows reach the caller as plain text.
+
+    Args:
+        session: Simulator with an open session.
+    """
+    body = {"totalcount": 1, "count": 1, "data": [
+        {"1": "R&#38;D &#60;b&#62;", "21": "&#60;p&#62;a &#38; b&#60;/p&#62;", "2": 7, "80": ["x &#38; y"]}]}
+    session.override("GET", "search/Computer", 200, body)
+    assert Computer.search(None) == [{"1": "R&D <b>", "21": "<p>a & b</p>", "2": 7, "80": ["x & y"]}]
+    assert Glpi.connector().search_body("Computer")["data"][0]["21"] == "<p>a & b</p>"
+
+
 def test_range_beyond_total_returns_empty_lists(session: GlpiMock) -> None:
     """A range that starts after the last row is an empty page, not an error.
 
