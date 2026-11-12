@@ -21,6 +21,8 @@
 - Any item type without a dedicated model can be used through the generic item factory.
 - Complete create, read, update, delete and search operations in every model, with bulk versions of creation, update
   and deletion, plus listing of search options.
+- Texts returned by searches come back as plain text (for example `<p>` instead of `&#60;p&#62;`), just like the
+  texts returned when reading an item.
 - Clear error types: not found, permission, rate limit, connection, partial operation and others, all derived from
   one base error. A bulk operation that only partly succeeds reports the result of each item.
 - Type hints on the whole public API, so editors can autocomplete methods and arguments.
