@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 - 2026-11-12
 
 ### New
 - The library now talks to GLPI 10 on its own, without the external `glpi-api` package. The transport sits behind a
